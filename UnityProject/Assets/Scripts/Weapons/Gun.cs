@@ -416,14 +416,14 @@ public class Gun : NBAimApplyInteractable, IInteractable<Activate>, IInteractabl
 					}
 					if (AmmoType != ammoType)
 					{
-						ChatRelay.Instance.AddToChatLogClient("You try to load the wrong ammo into your weapon",
+						ChatRelay.Instance.AddToChatLogClient("<style=warning>This ammo won't fit in this gun.</style>",
 							ChatChannel.Examine);
 					}
 				}
 				else  if (AmmoType == magazine.ammoType)
 				{
 					ChatRelay.Instance.AddToChatLogClient(
-						"You weapon is already loaded, you can't fit more Magazines in it, silly!",
+						"<style=warning>The gun is already loaded.</style>",
 						ChatChannel.Examine);
 				}
 			}
@@ -565,6 +565,8 @@ public class Gun : NBAimApplyInteractable, IInteractable<Activate>, IInteractabl
 	private void RequestReload(GameObject m, string hand, bool current)
 	{
 		Logger.LogTrace("Reloading", Category.Firearms);
+		ChatRelay.Instance.AddToChatLogClient("You load the ammo into your gun.",
+			ChatChannel.Examine);
 		PlayerManager.LocalPlayerScript.weaponNetworkActions.CmdLoadMagazine(gameObject, m, hand);
 		if (current)
 		{
@@ -629,6 +631,8 @@ public class Gun : NBAimApplyInteractable, IInteractable<Activate>, IInteractabl
 		Logger.LogTrace("Unloading", Category.Firearms);
 		if (m != null)
 		{
+			ChatRelay.Instance.AddToChatLogClient("You remove the ammo from your gun.",
+				ChatChannel.Examine);
 			//PlayerManager.LocalPlayerScript.playerNetworkActions.CmdDropItemNotInUISlot(m.gameObject);
 			PlayerManager.LocalPlayerScript.weaponNetworkActions.CmdUnloadWeapon(gameObject);
 		}

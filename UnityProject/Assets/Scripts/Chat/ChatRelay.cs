@@ -5,6 +5,7 @@ using UnityEngine.Networking;
 using UnityEngine;
 using UnityEngine.UI;
 using System.Text.RegularExpressions;
+using TMPro;
 
 public class ChatRelay : NetworkBehaviour
 {
@@ -85,7 +86,7 @@ public class ChatRelay : NetworkBehaviour
 					players.Remove(players[i]);
 				} else {
 					//within range, but check if they are in another room or hiding behind a wall
-					if (Physics2D.Linecast(chatEvent.position,//speaker.GameObject.transform.position, 
+					if (Physics2D.Linecast(chatEvent.position,//speaker.GameObject.transform.position,
 										  players[i].GameObject.transform.position, layerMask)) {
 						//if it hit a wall remove that player
 						players.Remove(players[i]);
@@ -141,7 +142,7 @@ public class ChatRelay : NetworkBehaviour
 			//string colorMessage = "<color=#" + GetCannelColor(channels) + ">" + name + message + "</color>";
             string colorMessage = "<color=white>" + name + message + "</color>";
             GameObject chatEntry = Instantiate(ControlChat.Instance.chatEntryPrefab, Vector3.zero, Quaternion.identity);
-            Text text = chatEntry.GetComponent<Text>();
+            TextMeshProUGUI text = chatEntry.GetComponent<TextMeshProUGUI>();
             text.text = colorMessage;
 			chatEntry.transform.SetParent(ControlChat.Instance.content, false);
             chatEntry.transform.localScale = Vector3.one;

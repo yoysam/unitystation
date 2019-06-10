@@ -1,10 +1,11 @@
 ﻿using System.Collections;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class ChatEntry : MonoBehaviour {
 
-    public Text text;
+    public TextMeshProUGUI text;
     private bool isCoolingDown = true;
 	public RectTransform rect;
 
