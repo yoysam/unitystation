@@ -9,7 +9,8 @@ using UnityEngine;
 public partial class MatrixMove
 {
 	//server-only values
-	[SyncVar] public MatrixState ServerState;
+	[SyncVar(hook=nameof(UpdateClientState))]
+	public MatrixState ServerState;
 	public bool IsMovingServer => ServerState.IsMoving && ServerState.Speed > 0f;
 
 	private bool IsRotatingServer;
@@ -524,6 +525,7 @@ public partial class MatrixMove
 	[Server]
 	public void UpdateNewPlayer(NetworkConnection playerConn, bool rotateImmediate = false)
 	{
+		Debug.Log("THIS IS NO LONGER NEEDED. REMND ME TO REMOVE IT");
 		ServerState.RotationTime = rotateImmediate ? 0 : rotTime;
 		MatrixMoveMessage.Send(playerConn, gameObject, ServerState);
 	}

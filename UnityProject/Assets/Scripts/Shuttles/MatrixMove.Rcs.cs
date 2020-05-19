@@ -54,9 +54,7 @@ public partial class MatrixMove
 			else
 			{
 				serverFromPosition = transform.position.To2Int();
-				Debug.Log("From: " + serverFromPosition);
 				serverTargetPosition = (serverFromPosition + dir).To2Int();
-				Debug.Log("TO: " + serverTargetPosition);
 				serverLerpTime = 0f;
 			}
 		}

@@ -15,7 +15,8 @@ public class MatrixMoveMessage : ServerMessage
 		//Sometimes NetworkObject is gone because of game ending or just before exit
 		if (NetworkObject != null) {
 			var matrixMove = NetworkObject.GetComponent<MatrixMove>();
-			matrixMove.UpdateClientState(State);
+			//	matrixMove.UpdateClientState(State);
+			Debug.Log("Matrix move message not used anymore!!");
 		}
 	}
 

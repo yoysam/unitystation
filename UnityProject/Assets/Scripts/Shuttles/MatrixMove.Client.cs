@@ -45,43 +45,40 @@ public partial class MatrixMove
 	}
 
 	/// Called when MatrixMoveMessage is received
-	public void UpdateClientState(MatrixState newState)
+	public void UpdateClientState(MatrixState oldState, MatrixState newState)
 	{
-//		var oldState = clientState;
-//		clientState = newState;
-//		Logger.LogTraceFormat("{0} setting client / client target state from message {1}", Category.Matrix, this, newState);
-//
-//
-//		if (!Equals(oldState.FacingDirection, newState.FacingDirection))
-//		{
-//			if (!receivedInitialState && !pendingInitialRotation)
-//			{
-//				pendingInitialRotation = true;
-//			}
-//			inProgressRotation = oldState.FacingDirection.OffsetTo(newState.FacingDirection);
-//			Logger.LogTraceFormat("{0} starting rotation progress to {1}", Category.Matrix, this, newState.FacingDirection);
-//			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Client, RotationEvent.Start));
-//		}
-//
-//		if (!oldState.IsMoving && newState.IsMoving)
-//		{
-//			MatrixMoveEvents.OnStartMovementClient.Invoke();
-//		}
-//
-//		if (oldState.IsMoving && !newState.IsMoving)
-//		{
-//			MatrixMoveEvents.OnStopMovementClient.Invoke();
-//		}
-//
-//		if ((int) oldState.Speed != (int) newState.Speed)
-//		{
-//			MatrixMoveEvents.OnSpeedChange.Invoke(oldState.Speed, newState.Speed);
-//		}
-//
-//		if (!receivedInitialState && !pendingInitialRotation)
-//		{
-//			receivedInitialState = true;
-//		}
+		//Debug.Log($"Old State {oldState.Speed} {oldState.Position} New State {newState.Speed} {newState.Position}");
+
+		if (!Equals(oldState.FacingDirection, newState.FacingDirection))
+		{
+			if (!receivedInitialState && !pendingInitialRotation)
+			{
+				pendingInitialRotation = true;
+			}
+			inProgressRotation = oldState.FacingDirection.OffsetTo(newState.FacingDirection);
+			Logger.LogTraceFormat("{0} starting rotation progress to {1}", Category.Matrix, this, newState.FacingDirection);
+			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Client, RotationEvent.Start));
+		}
+
+		if (!oldState.IsMoving && newState.IsMoving)
+		{
+			MatrixMoveEvents.OnStartMovementClient.Invoke();
+		}
+
+		if (oldState.IsMoving && !newState.IsMoving)
+		{
+			MatrixMoveEvents.OnStopMovementClient.Invoke();
+		}
+
+		if ((int)oldState.Speed != (int)newState.Speed)
+		{
+			MatrixMoveEvents.OnSpeedChange.Invoke(oldState.Speed, newState.Speed);
+		}
+
+		if (!receivedInitialState && !pendingInitialRotation)
+		{
+			receivedInitialState = true;
+		}
 	}
 
 	private void CheckMovementClient()
