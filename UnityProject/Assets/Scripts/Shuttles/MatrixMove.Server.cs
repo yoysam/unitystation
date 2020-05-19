@@ -522,17 +522,10 @@ public partial class MatrixMove
 	/// <param name="playerGameObject">player to send to</param>
 	/// <param name="rotateImmediate">(for init) rotation should be applied immediately if true</param>
 	[Server]
-	public void NotifyPlayer(GameObject playerGameObject, bool rotateImmediate = false)
+	public void UpdateNewPlayer(NetworkConnection playerConn, bool rotateImmediate = false)
 	{
-		ServerState = new MatrixState
-		{
-			IsMoving = ServerState.IsMoving,
-			Speed = ServerState.Speed,
-			RotationTime = rotateImmediate ? 0 : rotTime,
-			Position = ServerState.Position,
-			FacingDirection = ServerState.FacingDirection,
-			FlyingDirection = ServerState.FlyingDirection
-		};
+		ServerState.RotationTime = rotateImmediate ? 0 : rotTime;
+		MatrixMoveMessage.Send(playerConn, gameObject, ServerState);
 	}
 
 	///Only change orientation if rotation is finished
