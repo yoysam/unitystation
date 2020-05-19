@@ -1067,7 +1067,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   Speed: 180
-  Clockwise: 1
+  randomise: 0
 --- !u!114 &114978720784130912
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1235,6 +1235,12 @@ MonoBehaviour:
   Provider: {fileID: 0}
   ProviderRegisterTile: {fileID: 0}
   Type: 1
+  OnTabOpened:
+    m_PersistentCalls:
+      m_Calls: []
+  OnTabClosed:
+    m_PersistentCalls:
+      m_Calls: []
   rcsLight: {fileID: 4045547224110564359}
   rcsLightOn: {fileID: 21300002, guid: 549fbecefe555964a8444a4cd42275a3, type: 3}
   rcsLightOff: {fileID: 21300000, guid: 549fbecefe555964a8444a4cd42275a3, type: 3}
@@ -1437,6 +1443,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ServerMethod:
     m_PersistentCalls:
+      m_Calls: []
+  ServerMethodWithSubject:
+    m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 114343398355056170}
         m_MethodName: TurnOnOff
@@ -1449,9 +1458,6 @@ MonoBehaviour:
           m_StringArgument: 
           m_BoolArgument: 0
         m_CallState: 2
-  ServerMethodWithSubject:
-    m_PersistentCalls:
-      m_Calls: []
 --- !u!1 &1661767596591212
 GameObject:
   m_ObjectHideFlags: 0
