@@ -8,9 +8,17 @@ using UnityEngine.UI;
 public struct PixelPerfectRTParameter : IEquatable<PixelPerfectRTParameter>
 {
 	public Vector2Int units;
-	public int pixelPerUnit;
 
-	public PixelPerfectRTParameter(Vector2Int iUnits, int iPixelPerUnit)
+	public int pixelPerUnit
+	{
+		get
+		{
+			if (Camera2DFollow.followControl == null) return 32;
+			return Camera2DFollow.followControl.pixelPerfectCamera.assetsPPU;
+		}
+	}
+
+	public PixelPerfectRTParameter(Vector2Int iUnits)
 	{
 		units = iUnits;
 
@@ -23,9 +31,6 @@ public struct PixelPerfectRTParameter : IEquatable<PixelPerfectRTParameter>
 		{
 			units.y = 1;
 		}
-
-		pixelPerUnit = iPixelPerUnit % 2 == 0 ? iPixelPerUnit : ++iPixelPerUnit;
-		pixelPerUnit = Mathf.Clamp(pixelPerUnit, 1, int.MaxValue);
 	}
 
 	public Vector2Int resolution => units * pixelPerUnit;
@@ -41,7 +46,7 @@ public struct PixelPerfectRTParameter : IEquatable<PixelPerfectRTParameter>
 		bool _yMatchMovement = Mathf.Abs(iPreviousPosition.y - iPositionToMatch.y) > 0.00001f;
 		bool _isMatchDiagonal = _xMatchMovement && _yMatchMovement;
 
-		float _unitPerPixel = (float)units.x / (pixelPerUnit * units.x);
+		float _unitPerPixel = (float)units.x / ( Camera2DFollow.followControl.pixelPerfectCamera.assetsPPU * units.x);
 
 		// Give Position an affinity towards one side. Helps with position noise.
 		var _positionToMatch = iPositionToMatch + new Vector3(0.0001f, -0.0001f, 0);

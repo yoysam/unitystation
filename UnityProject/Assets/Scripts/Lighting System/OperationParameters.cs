@@ -31,18 +31,20 @@ public struct OperationParameters : IEquatable<OperationParameters>
 		// Reduce detail if player zoomed out.
 		_occlusionDetail = _highViewMode == false ? _occlusionDetail : _occlusionDetail / 2;
 
-		// Make sure detail is even value.
-		int _initialSampleDetail = iRenderSettings.occlusionDetail % 2 == 0 ? _occlusionDetail : ++_occlusionDetail;
-
-		occlusionPPRTParameter = new PixelPerfectRTParameter(cameraViewportUnitsCeiled + iRenderSettings.occlusionMaskSizeAdd, _initialSampleDetail);
-		fovPPRTParameter = new PixelPerfectRTParameter(occlusionPPRTParameter.units, _initialSampleDetail);
-		lightPPRTParameter = new PixelPerfectRTParameter(cameraViewportUnitsCeiled, _initialSampleDetail * (int)iRenderSettings.lightResample);
-		obstacleLightPPRTParameter = new PixelPerfectRTParameter(lightPPRTParameter.units, Mathf.Clamp(_initialSampleDetail, 2, int.MaxValue));
-
-		pixelsPerUnit = _occlusionDetail;
+		occlusionPPRTParameter = new PixelPerfectRTParameter(cameraViewportUnitsCeiled + iRenderSettings.occlusionMaskSizeAdd);
+		fovPPRTParameter = new PixelPerfectRTParameter(occlusionPPRTParameter.units);
+		lightPPRTParameter = new PixelPerfectRTParameter(cameraViewportUnitsCeiled);
+		obstacleLightPPRTParameter = new PixelPerfectRTParameter(lightPPRTParameter.units);
 	}
 
-	public int pixelsPerUnit { get; }
+	public int pixelsPerUnit
+	{
+		get
+		{
+			if (Camera2DFollow.followControl == null) return 32;
+			return Camera2DFollow.followControl.pixelPerfectCamera.assetsPPU;
+		}
+	}
 
 	public static bool operator ==(OperationParameters iLeftHand, OperationParameters iRightHand)
 	{

@@ -589,6 +589,7 @@ MonoBehaviour:
   stencilMask: {fileID: 0}
   lightingSystem: {fileID: 0}
   cam: {fileID: 0}
+  pixelPerfectCamera: {fileID: 4441493179746393366}
 --- !u!20 &20680082919460720
 Camera:
   m_ObjectHideFlags: 0

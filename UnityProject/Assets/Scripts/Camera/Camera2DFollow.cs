@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.U2D;
 
 public class Camera2DFollow : MonoBehaviour
 {
@@ -57,6 +58,8 @@ public class Camera2DFollow : MonoBehaviour
 
 	[HideInInspector]
 	public Camera cam;
+
+	public PixelPerfectCamera pixelPerfectCamera;
 
 	private void Awake()
 	{
