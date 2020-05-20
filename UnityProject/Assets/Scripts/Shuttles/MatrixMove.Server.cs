@@ -291,6 +291,20 @@ public partial class MatrixMove
 		};
 	}
 
+	[Server]
+	public void ServerSetMoving(bool isMoving)
+	{
+		ServerState = new MatrixState
+		{
+			IsMoving = isMoving,
+			Speed = ServerState.Speed,
+			RotationTime = ServerState.RotationTime,
+			Position = ServerState.Position,
+			FacingDirection = ServerState.FacingDirection,
+			FlyingDirection = ServerState.FlyingDirection
+		};
+	}
+
 	/// Serverside movement routine
 	[Server]
 	private void CheckMovementServer()
@@ -330,20 +344,21 @@ public partial class MatrixMove
 
 		if (EnginesOperational && ServerState.Speed > 0f)
 		{
+			if(!ServerState.IsMoving) ServerSetMoving(true);
 			serverLerpTime += Time.deltaTime * ServerState.Speed;
 			transform.position = Vector2.Lerp(serverFromPosition, serverTargetPosition, serverLerpTime);
 			matrixPositionFilter.FilterPosition(transform, transform.position, ServerState.FlyingDirection, rcsBurn);
 			if (serverLerpTime >= 1f)
 			{
 				UpdateServerStatePosition(serverTargetPosition);
-				serverMoveNodes.AddHistoryNode(serverTargetPosition.To2Int(), NetworkTime.time);
+				ServerCreateHistoryNode();
 				GetServerTargetNode();
 				if (rcsBurn) rcsBurn = false;
 			}
 		}
 		else
 		{
-
+			if(ServerState.IsMoving) ServerSetMoving(false);
 			if (rcsBurn)
 			{
 				serverLerpTime += Time.deltaTime * 1f;
@@ -354,40 +369,9 @@ public partial class MatrixMove
 					UpdateServerStatePosition(serverTargetPosition);
 					transform.position = serverTargetPosition; //sometimes it is ever so slightly off the target
 					rcsBurn = false;
-					serverMoveNodes.AddHistoryNode(serverTargetPosition.To2Int(), NetworkTime.time);
+					ServerCreateHistoryNode();
 				}
 			}
-
-//			//Finish the lerp if it was half way through on stopping
-//			if (serverMoveNodes.historyNodes[0].nodePos != Vector2Int.zero &&
-//			    serverMoveNodes.historyNodes[0].nodePos != serverTargetPosition.To2Int())
-//			{
-//				serverLerpTime += Time.deltaTime * 1f;
-//				transform.position = Vector2.Lerp(serverFromPosition, serverTargetPosition, serverLerpTime);
-//				matrixPositionFilter.FilterPosition(transform, transform.position, ServerState.FlyingDirection, rcsBurn);
-//				if (serverLerpTime >= 1f)
-//				{
-//					transform.position = serverTargetPosition; //sometimes it is ever so slightly off the target
-//					UpdateServerStatePosition(serverTargetPosition);
-//					serverMoveNodes.AddHistoryNode(serverTargetPosition.To2Int(), NetworkTime.time);
-//					if (rcsBurn) rcsBurn = false;
-//				}
-//			}
-//			else
-//			{
-//				if (rcsBurn)
-//				{
-//					serverLerpTime += Time.deltaTime * 1f;
-//					transform.position = Vector2.Lerp(serverFromPosition, serverTargetPosition, serverLerpTime);
-//					matrixPositionFilter.FilterPosition(transform, transform.position, ServerState.FlyingDirection, rcsBurn);
-//					if (serverLerpTime >= 1f)
-//					{
-//						transform.position = serverTargetPosition; //sometimes it is ever so slightly off the target
-//						rcsBurn = false;
-//						serverMoveNodes.AddHistoryNode(serverTargetPosition.To2Int(), NetworkTime.time);
-//					}
-//				}
-//			}
 		}
 
 		//ServerState lerping to its target tile
@@ -450,6 +434,11 @@ public partial class MatrixMove
 //		}
 	}
 
+	private void ServerCreateHistoryNode()
+	{
+		RpcReceiveServerHistoryNode(serverMoveNodes.AddHistoryNode(serverTargetPosition.To2Int(), NetworkTime.time));
+	}
+
 	[Server]
 	private void UpdateServerStatePosition(Vector2 position)
 	{
@@ -471,7 +460,6 @@ public partial class MatrixMove
 		Vector3Int intPos = Vector3Int.RoundToInt(pos);
 		transform.position = intPos;
 		UpdateServerStatePosition(intPos.To2Int());
-		Debug.Log("Sync Set Positions with clients!!");
 	}
 
 	/// Schedule notification for the next ServerPositionsMatch
@@ -517,17 +505,6 @@ public partial class MatrixMove
 //			serverTargetState.Inform = false;
 //			serverState.Inform = false;
 //		}
-	}
-
-	///     Sync with new player joining
-	/// <param name="playerGameObject">player to send to</param>
-	/// <param name="rotateImmediate">(for init) rotation should be applied immediately if true</param>
-	[Server]
-	public void UpdateNewPlayer(NetworkConnection playerConn, bool rotateImmediate = false)
-	{
-		Debug.Log("THIS IS NO LONGER NEEDED. REMND ME TO REMOVE IT");
-		ServerState.RotationTime = rotateImmediate ? 0 : rotTime;
-		MatrixMoveMessage.Send(playerConn, gameObject, ServerState);
 	}
 
 	///Only change orientation if rotation is finished

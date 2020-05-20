@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using Mirror;
+using UnityEngine;
 
 /// <summary>
 /// Matrix Move Client
@@ -6,12 +7,6 @@
 public partial class MatrixMove
 {
 	private bool IsMovingClient => ServerState.IsMoving && ServerState.Speed > 0f;
-	/// <summary>
-	/// Does current transform rotation not yet match the client matrix state rotation, and thus this matrix's transform needs to
-	/// be rotated to match the target?
-	/// </summary>
-	private bool NeedsRotationClient =>
-		Quaternion.Angle(transform.rotation, InitialFacing.OffsetTo(ServerState.FacingDirection).Quaternion) != 0;
 
 	private bool IsRotatingClient;
 
@@ -26,11 +21,16 @@ public partial class MatrixMove
 	public bool Initialized => clientStarted && receivedInitialState;
 
 	private MatrixMoveNodes clientMoveNodes = new MatrixMoveNodes();
+	private HistoryNode[] serverHistory = new HistoryNode[4];
+
+	private float clientRotateLerp = 0f;
+	private Quaternion clientFromRotation;
 
 	public override void OnStartClient()
 	{
 		SyncPivot(pivot, pivot);
 		SyncInitialPosition(initialPosition, initialPosition);
+		UpdateClientState(new MatrixState(), ServerState);
 		clientStarted = true;
 	}
 
@@ -44,10 +44,33 @@ public partial class MatrixMove
 		this.pivot = pivot.RoundToInt();
 	}
 
+	[ClientRpc]
+	private void RpcReceiveServerHistoryNode(HistoryNode historyNode)
+	{
+		Debug.Log($"SERVER HISTORY: {historyNode.nodePos} {historyNode.networkTime}");
+		for (int i = serverHistory.Length - 2; i >= 0; i--)
+		{
+			serverHistory[i + 1] = serverHistory[i];
+			if (i == 0)
+			{
+				serverHistory[i] = historyNode;
+			}
+		}
+	}
+
+	private void StartRotateClient()
+	{
+		clientRotateLerp = 0f;
+		clientFromRotation = transform.rotation;
+		MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this,
+			ServerState.FacingDirection.OffsetTo(ServerState.FacingDirection), NetworkSide.Client, RotationEvent.Start));
+		IsRotatingClient = true;
+	}
+
 	/// Called when MatrixMoveMessage is received
 	public void UpdateClientState(MatrixState oldState, MatrixState newState)
 	{
-		//Debug.Log($"Old State {oldState.Speed} {oldState.Position} New State {newState.Speed} {newState.Position}");
+		Debug.Log($"New State spd: {newState.Speed} pos: {newState.Position} ismove: {newState.IsMoving}  rotTime: {newState.RotationTime} flyDir: {newState.FlyingDirection}");
 
 		if (!Equals(oldState.FacingDirection, newState.FacingDirection))
 		{
@@ -58,6 +81,12 @@ public partial class MatrixMove
 			inProgressRotation = oldState.FacingDirection.OffsetTo(newState.FacingDirection);
 			Logger.LogTraceFormat("{0} starting rotation progress to {1}", Category.Matrix, this, newState.FacingDirection);
 			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Client, RotationEvent.Start));
+		}
+
+		if (oldState.FacingDirection != newState.FacingDirection)
+		{
+			StartRotateClient();
+			Debug.Log("START ROTATION CLIENT");
 		}
 
 		if (!oldState.IsMoving && newState.IsMoving)
@@ -79,25 +108,39 @@ public partial class MatrixMove
 		{
 			receivedInitialState = true;
 		}
+
+		ServerState = newState;
 	}
 
 	private void CheckMovementClient()
 	{
-		if (NeedsRotationClient)
+		if (IsRotatingClient)
 		{
 			//rotate our transform to our new facing direction
 			if (ServerState.RotationTime != 0)
 			{
+				clientRotateLerp += Time.deltaTime * ServerState.RotationTime;
 				//animate rotation
 				transform.rotation =
-					Quaternion.RotateTowards(transform.rotation,
+					Quaternion.Lerp(clientFromRotation,
 						InitialFacing.OffsetTo(ServerState.FacingDirection).Quaternion,
-						Time.deltaTime * ServerState.RotationTime);
+						clientRotateLerp);
+
+				if (clientRotateLerp >= 1f)
+				{
+					serverMoveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
+					transform.rotation = InitialFacing.OffsetTo(ServerState.FacingDirection).Quaternion;
+					IsRotatingClient = false;
+					GetServerTargetNode();
+				}
 			}
 			else
 			{
 				//rotate instantly
 				transform.rotation = InitialFacing.OffsetTo(ServerState.FacingDirection).Quaternion;
+				IsRotatingClient = false;
+				serverMoveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
+				GetServerTargetNode();
 			}
 
 			return;

@@ -143,23 +143,23 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	///managed by UpdateManager
 	public override void LateUpdateMe()
 	{
-		//finish rotation now that the transform should finally be rotated
-		if (!NeedsRotationClient && inProgressRotation != null)
-		{
-			//client and server logic happens here because server also must wait for the rotation to finish lerping.
-			Logger.LogTraceFormat("{0} ending rotation progress to {1}", Category.Matrix, this, inProgressRotation.Value);
-			if (isServer)
-			{
-				MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Server, RotationEvent.End));
-			}
-			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Client, RotationEvent.End));
-			inProgressRotation = null;
-			if (pendingInitialRotation && !receivedInitialState)
-			{
-				receivedInitialState = true;
-				pendingInitialRotation = false;
-			}
-		}
+		// //finish rotation now that the transform should finally be rotated
+		// if (!NeedsRotationClient && inProgressRotation != null)
+		// {
+		// 	//client and server logic happens here because server also must wait for the rotation to finish lerping.
+		// 	Logger.LogTraceFormat("{0} ending rotation progress to {1}", Category.Matrix, this, inProgressRotation.Value);
+		// 	if (isServer)
+		// 	{
+		// 		MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Server, RotationEvent.End));
+		// 	}
+		// 	MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Client, RotationEvent.End));
+		// 	inProgressRotation = null;
+		// 	if (pendingInitialRotation && !receivedInitialState)
+		// 	{
+		// 		receivedInitialState = true;
+		// 		pendingInitialRotation = false;
+		// 	}
+		// }
 
 		if (isClient)
 		{
@@ -173,6 +173,8 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	private bool CanMoveTo(Orientation direction)
 	{
+		if (SensorPositions == null) return true;
+
 		Vector3 dir = direction.Vector;
 
 		//		check if next tile is passable
