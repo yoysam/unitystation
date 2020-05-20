@@ -197,10 +197,15 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 			matrixPositionFilter.FilterPosition(transform, transform.position, SharedState.FlyingDirection, rcsBurn);
 			if (moveLerp >= 1f)
 			{
+				Debug.Log("End pos: " + toPosition + " time:  " + NetworkTime.time);
 				if (isServer)
 				{
 					UpdateServerStatePosition(toPosition);
 					ServerCreateHistoryNode();
+				}
+				else
+				{
+					ClientLagMonitor();
 				}
 
 				GetTargetMoveNode();
@@ -234,6 +239,27 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 				// 	transform.position = SharedState.Position;
 				// }
 			}
+		}
+	}
+
+	/// Logic that monitors lag on the client
+	/// and adjusts move nodes if client is too far behind
+	/// server. Causing client to move faster to the next target
+	void ClientLagMonitor()
+	{
+		if (serverHistory[0].networkTime == -1) return;
+
+		var timeDiff = NetworkTime.time - serverHistory[0].networkTime;
+		if (timeDiff < 0) timeDiff *= -1;
+
+		// if (timeDiff < 0.4) return; //not bad enough lag
+		Debug.Log($"Check Time diff {timeDiff} {serverHistory[0].nodePos} {toPosition}");
+		//check if we need to do anything:
+		if (serverHistory[0].nodePos != toPosition)
+		{
+			Debug.Log("Compensator ");
+			moveNodes.GenerateMoveNodes(serverHistory[0].nodePos, ServerState.FlyingDirection.VectorInt);
+			SharedState = ServerState;
 		}
 	}
 

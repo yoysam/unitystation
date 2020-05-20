@@ -116,6 +116,8 @@ public partial class MatrixMove
 
 			RotationSensors = sensors.Select(sensor => sensor.gameObject).ToArray();
 		}
+
+		SharedState = ServerState;
 	}
 
 	[Server]
@@ -247,29 +249,23 @@ public partial class MatrixMove
 		Target = TransformState.HiddenPos;
 	}
 
-	/// Adjust current ship's speed with a relative value
-	[Server]
-	public void AdjustSpeed(float relativeValue)
-	{
-		float absSpeed = ServerState.Speed + relativeValue;
-		SetSpeed(absSpeed);
-	}
-
 	/// Set ship's speed using absolute value. it will be truncated if it's out of bounds
-	[Server]
 	public void SetSpeed(float absoluteValue)
 	{
-		ServerState = new MatrixState
+		if (isServer)
 		{
-			IsMoving = ServerState.IsMoving,
-			Speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed),
-			RotationTime = ServerState.RotationTime,
-			Position = ServerState.Position,
-			FacingDirection = ServerState.FacingDirection,
-			FlyingDirection = ServerState.FlyingDirection
-		};
+			ServerState = new MatrixState
+			{
+				IsMoving = ServerState.IsMoving,
+				Speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed),
+				RotationTime = ServerState.RotationTime,
+				Position = ServerState.Position,
+				FacingDirection = ServerState.FacingDirection,
+				FlyingDirection = ServerState.FlyingDirection
+			};
+		}
 
-		SharedState = ServerState;
+		SharedState.Speed = absoluteValue;
 	}
 
 	[Server]

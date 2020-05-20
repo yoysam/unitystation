@@ -55,8 +55,7 @@ public partial class MatrixMove
 	/// Called when MatrixMoveMessage is received
 	public void UpdateClientState(MatrixState oldState, MatrixState newState)
 	{
-		Debug.Log($"New State spd: {newState.Speed} pos: {newState.Position} ismove: {newState.IsMoving}  rotTime: {newState.RotationTime} flyDir: {newState.FlyingDirection}");
-
+		if (isServer) return;
 		if (!Equals(oldState.FacingDirection, newState.FacingDirection))
 		{
 			if (!receivedInitialState && !pendingInitialRotation)
