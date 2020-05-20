@@ -204,7 +204,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 				}
 
 				GetTargetMoveNode();
-				if (rcsBurn) rcsBurn = false;
+				if (rcsBurn) DoEndRcsBurnChecks();
 			}
 		}
 		else
@@ -223,7 +223,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 					}
 
 					transform.position = toPosition; //sometimes it is ever so slightly off the target
-					rcsBurn = false;
+					DoEndRcsBurnChecks();
 				}
 			}
 			else

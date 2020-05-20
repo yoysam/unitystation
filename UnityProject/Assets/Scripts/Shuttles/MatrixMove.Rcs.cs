@@ -14,9 +14,16 @@ public partial class MatrixMove
 	private List<RcsThruster> starBoardRcsThrusters = new List<RcsThruster>(); //right
 	public ConnectedPlayer playerControllingRcs { get; private set; }
 
-	[SyncVar] [HideInInspector]
-	public bool rcsModeActive;
+	[SyncVar] [HideInInspector] public bool rcsModeActive;
 	private bool rcsBurn = false;
+
+	private Queue<PendingRcsMove> pendingRcsMoves = new Queue<PendingRcsMove>();
+
+	private struct PendingRcsMove
+	{
+		public GameObject requestedBy;
+		public Vector2Int dir;
+	}
 
 	//For Rcs Movement
 	public void ReceivePlayerMoveAction(PlayerAction moveActions)
@@ -41,10 +48,44 @@ public partial class MatrixMove
 	[Server]
 	public void ProcessRcsMoveRequest(ConnectedPlayer sentBy, Vector2Int dir)
 	{
-		if (sentBy == playerControllingRcs && dir != Vector2Int.zero && !rcsBurn)
+		if (sentBy == playerControllingRcs && dir != Vector2Int.zero)
 		{
-			MoveViaRcs(dir);
-			RpcRcsMove(dir, sentBy.GameObject);
+			if (rcsBurn)
+			{
+				pendingRcsMoves.Enqueue(new PendingRcsMove
+				{
+					requestedBy = sentBy.GameObject,
+					dir = dir
+				});
+			}
+			else
+			{
+				MoveViaRcs(dir);
+				RpcRcsMove(dir, sentBy.GameObject);
+			}
+		}
+	}
+
+	private void DoEndRcsBurnChecks()
+	{
+		Debug.Log("Do end rcs burn check: " + pendingRcsMoves.Count);
+		if (pendingRcsMoves.Count > 0)
+		{
+			var pendingMove = pendingRcsMoves.Dequeue();
+			Debug.Log("Pending move: " + pendingMove.dir);
+			if (isServer)
+			{
+				MoveViaRcs(pendingMove.dir);
+				RpcRcsMove(pendingMove.dir, pendingMove.requestedBy);
+			}
+			else
+			{
+				MoveViaRcs(pendingMove.dir);
+			}
+		}
+		else
+		{
+			rcsBurn = false;
 		}
 	}
 
@@ -55,6 +96,17 @@ public partial class MatrixMove
 		{
 			return;
 		}
+
+		if (rcsBurn)
+		{
+			pendingRcsMoves.Enqueue(new PendingRcsMove
+			{
+				requestedBy = requestBy,
+				dir = dir
+			});
+			return;
+		}
+
 		MoveViaRcs(dir);
 	}
 
@@ -93,7 +145,7 @@ public partial class MatrixMove
 	public void CacheRcs()
 	{
 		ClearRcsCache();
-		foreach(Transform t in matrixInfo.Objects)
+		foreach (Transform t in matrixInfo.Objects)
 		{
 			if (t.tag.Equals("Rcs"))
 			{
@@ -107,34 +159,34 @@ public partial class MatrixMove
 	{
 		if (InitialFacing == Orientation.Up)
 		{
-			if(mappedOrientation == OrientationEnum.Up) bowRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Down) sternRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Right) portRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Left) starBoardRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Up) bowRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Down) sternRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Right) portRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Left) starBoardRcsThrusters.Add(thruster);
 		}
 
 		if (InitialFacing == Orientation.Right)
 		{
-			if(mappedOrientation == OrientationEnum.Up) portRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Down) starBoardRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Right) sternRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Left) bowRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Up) portRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Down) starBoardRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Right) sternRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Left) bowRcsThrusters.Add(thruster);
 		}
 
 		if (InitialFacing == Orientation.Down)
 		{
-			if(mappedOrientation == OrientationEnum.Up) sternRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Down) bowRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Right) starBoardRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Left) portRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Up) sternRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Down) bowRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Right) starBoardRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Left) portRcsThrusters.Add(thruster);
 		}
 
 		if (InitialFacing == Orientation.Left)
 		{
-			if(mappedOrientation == OrientationEnum.Up) starBoardRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Down) portRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Right) bowRcsThrusters.Add(thruster);
-			if(mappedOrientation == OrientationEnum.Left) sternRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Up) starBoardRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Down) portRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Right) bowRcsThrusters.Add(thruster);
+			if (mappedOrientation == OrientationEnum.Left) sternRcsThrusters.Add(thruster);
 		}
 	}
 
