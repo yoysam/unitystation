@@ -17,14 +17,24 @@ public partial class MatrixMove
 	[SyncVar] [HideInInspector]
 	public bool rcsModeActive;
 	private bool rcsBurn = false;
-	private Vector3 rcsValue = Vector3.zero;
 
 	//For Rcs Movement
 	public void ReceivePlayerMoveAction(PlayerAction moveActions)
 	{
-		if (moveActions.Direction() != Vector2Int.zero)
+		if (moveActions.Direction() != Vector2Int.zero && !rcsBurn)
 		{
-			RcsMovementMessage.Send(moveActions.Direction(), netId);
+			var dir = moveActions.Direction();
+			if (!isServer)
+			{
+				if (MoveViaRcs(dir))
+				{
+					RcsMovementMessage.Send(dir, netId);
+				}
+			}
+			else
+			{
+				ProcessRcsMoveRequest(playerControllingRcs, dir);
+			}
 		}
 	}
 
@@ -33,31 +43,50 @@ public partial class MatrixMove
 	{
 		if (sentBy == playerControllingRcs && dir != Vector2Int.zero && !rcsBurn)
 		{
-			rcsBurn = true;
-			if (ServerState.Speed > 0f)
+			MoveViaRcs(dir);
+			RpcRcsMove(dir, sentBy.GameObject);
+		}
+	}
+
+	[ClientRpc]
+	private void RpcRcsMove(Vector2Int dir, GameObject requestBy)
+	{
+		if (PlayerManager.LocalPlayer != null && PlayerManager.LocalPlayer == requestBy)
+		{
+			return;
+		}
+		MoveViaRcs(dir);
+	}
+
+	private bool MoveViaRcs(Vector2Int dir)
+	{
+		rcsBurn = true;
+		if (SharedState.Speed > 0f)
+		{
+			//matrix is moving we need to strafe instead
+			//(forward and reverse will be ignored)
+			if (SharedState.FlyingDirection.VectorInt != dir &&
+			    SharedState.FlyingDirection.VectorInt * -1 != dir)
 			{
-				//matrix is moving we need to strafe instead
-				//(forward and reverse will be ignored)
-				if (ServerState.FlyingDirection.VectorInt != dir &&
-				    ServerState.FlyingDirection.VectorInt * -1 != dir)
-				{
-					serverMoveNodes.AdjustFutureNodes(dir);
-					serverTargetPosition += dir;
-					serverFromPosition = transform.position;
-					serverLerpTime = 0f;
-				}
-				else
-				{
-					rcsBurn = false;
-				}
+				moveNodes.AdjustFutureNodes(dir);
+				toPosition += dir;
+				fromPosition = transform.position;
+				moveLerp = 0f;
 			}
 			else
 			{
-				serverFromPosition = transform.position.To2Int();
-				serverTargetPosition = (serverFromPosition + dir).To2Int();
-				serverLerpTime = 0f;
+				rcsBurn = false;
+				return false;
 			}
 		}
+		else
+		{
+			fromPosition = transform.position.To2Int();
+			toPosition = (fromPosition + dir).To2Int();
+			moveLerp = 0f;
+		}
+
+		return true;
 	}
 
 	//Searches the matrix for RcsThrusters

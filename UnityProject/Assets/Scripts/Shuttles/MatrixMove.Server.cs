@@ -13,25 +13,13 @@ public partial class MatrixMove
 	public MatrixState ServerState;
 	public bool IsMovingServer => ServerState.IsMoving && ServerState.Speed > 0f;
 
-	private bool IsRotatingServer;
-
 	//Autopilot target
 	private Vector3 Target = TransformState.HiddenPos;
 
 	///Zero means 100% accurate, but will lead to peculiar behaviour (autopilot not reacting fast enough on high speed -> going back/in circles etc)
 	private int AccuracyThreshold = 1;
 
-	private MatrixMoveNodes serverMoveNodes = new MatrixMoveNodes();
-
-	[SyncVar] private bool EnginesOperational;
-
-	private float serverLerpTime = 0f;
-
-	private Vector2 serverFromPosition;
-	private Vector2 serverTargetPosition;
-
-	private float serverRotateLerp = 0f;
-	private Quaternion serverFromRotation;
+	[SyncVar(hook=nameof(UpdateOperationalState))] private bool EnginesOperational;
 
 	public override void OnStartServer()
 	{
@@ -137,8 +125,8 @@ public partial class MatrixMove
 		{
 			MatrixMoveEvents.OnStartEnginesServer.Invoke();
 			EnginesOperational = true;
-			serverMoveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
-			GetServerTargetNode();
+			moveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
+			GetTargetMoveNode();
 		}
 		else
 		{
@@ -164,15 +152,6 @@ public partial class MatrixMove
 				}
 			}
 		}
-	}
-
-	void GetServerTargetNode()
-	{
-		if (!CanMoveTo(ServerState.FlyingDirection) && SafetyProtocolsOn) return;
-
-		serverLerpTime = 0f;
-		serverFromPosition = transform.position;
-		serverTargetPosition = serverMoveNodes.GetTargetNode(ServerState.FlyingDirection.VectorInt);
 	}
 
 	[Server]
@@ -289,6 +268,8 @@ public partial class MatrixMove
 			FacingDirection = ServerState.FacingDirection,
 			FlyingDirection = ServerState.FlyingDirection
 		};
+
+		SharedState = ServerState;
 	}
 
 	[Server]
@@ -310,69 +291,8 @@ public partial class MatrixMove
 	private void CheckMovementServer()
 	{
 
-		if (IsRotatingServer)
-		{
-			//rotate our transform to our new facing direction
-			if (ServerState.RotationTime != 0)
-			{
-				serverRotateLerp += Time.deltaTime * ServerState.RotationTime;
-				//animate rotation
-				transform.rotation =
-					Quaternion.Lerp(serverFromRotation,
-						InitialFacing.OffsetTo(ServerState.FacingDirection).Quaternion,
-						serverRotateLerp);
-
-				if (serverRotateLerp >= 1f)
-				{
-					serverMoveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
-					transform.rotation = InitialFacing.OffsetTo(ServerState.FacingDirection).Quaternion;
-					IsRotatingServer = false;
-					GetServerTargetNode();
-				}
-			}
-			else
-			{
-				//rotate instantly
-				transform.rotation = InitialFacing.OffsetTo(ServerState.FacingDirection).Quaternion;
-				IsRotatingServer = false;
-				serverMoveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
-				GetServerTargetNode();
-			}
-
-			return;
-		}
-
-		if (EnginesOperational && ServerState.Speed > 0f)
-		{
-			if(!ServerState.IsMoving) ServerSetMoving(true);
-			serverLerpTime += Time.deltaTime * ServerState.Speed;
-			transform.position = Vector2.Lerp(serverFromPosition, serverTargetPosition, serverLerpTime);
-			matrixPositionFilter.FilterPosition(transform, transform.position, ServerState.FlyingDirection, rcsBurn);
-			if (serverLerpTime >= 1f)
-			{
-				UpdateServerStatePosition(serverTargetPosition);
-				ServerCreateHistoryNode();
-				GetServerTargetNode();
-				if (rcsBurn) rcsBurn = false;
-			}
-		}
-		else
-		{
-			if(ServerState.IsMoving) ServerSetMoving(false);
-			if (rcsBurn)
-			{
-				serverLerpTime += Time.deltaTime * 1f;
-				transform.position = Vector2.Lerp(serverFromPosition, serverTargetPosition, serverLerpTime);
-				matrixPositionFilter.FilterPosition(transform, transform.position, ServerState.FlyingDirection, rcsBurn);
-				if (serverLerpTime >= 1f)
-				{
-					UpdateServerStatePosition(serverTargetPosition);
-					transform.position = serverTargetPosition; //sometimes it is ever so slightly off the target
-					rcsBurn = false;
-					ServerCreateHistoryNode();
-				}
-			}
-		}
+		if (RotateMatrix()) return;
+		MoveMatrix();
 
 		//ServerState lerping to its target tile
 
@@ -436,7 +356,7 @@ public partial class MatrixMove
 
 	private void ServerCreateHistoryNode()
 	{
-		RpcReceiveServerHistoryNode(serverMoveNodes.AddHistoryNode(serverTargetPosition.To2Int(), NetworkTime.time));
+		RpcReceiveServerHistoryNode(moveNodes.AddHistoryNode(toPosition.To2Int(), NetworkTime.time));
 	}
 
 	[Server]
@@ -506,61 +426,6 @@ public partial class MatrixMove
 //			serverState.Inform = false;
 //		}
 	}
-
-	///Only change orientation if rotation is finished
-	[Server]
-	public void TryRotate(bool clockwise)
-	{
-		if (!IsRotatingServer)
-		{
-			Steer(clockwise);
-		}
-	}
-
-	/// <summary>
-	/// Steer 90 degrees in a direction and change flying direction to match
-	/// </summary>
-	/// <param name="clockwise"></param>
-	[Server]
-	public void Steer(bool clockwise)
-	{
-		SteerTo(ServerState.FacingDirection.Rotate(clockwise ? 1 : -1));
-	}
-
-	/// <summary>
-	/// Change facing and flying direction to match specified direction if possible.
-	/// If blocked, returns false.
-	/// </summary>
-	/// <param name="desiredOrientation"></param>
-	[Server]
-	public bool SteerTo(Orientation desiredOrientation)
-	{
-		if (CanRotateTo(desiredOrientation))
-		{
-			ServerState = new MatrixState
-			{
-				IsMoving = ServerState.IsMoving,
-				Speed = ServerState.Speed,
-				RotationTime = 2f,
-				Position = ServerState.Position,
-				FacingDirection = desiredOrientation,
-				FlyingDirection = desiredOrientation
-			};
-
-			serverFromRotation = transform.rotation;
-			serverRotateLerp = 0f;
-			IsRotatingServer = true;
-
-			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this,
-				ServerState.FacingDirection.OffsetTo(desiredOrientation), NetworkSide.Server, RotationEvent.Start));
-
-//			RequestNotify();
-			return true;
-		}
-
-		return false;
-	}
-
 
 	/// Changes flying direction without rotating the shuttle, for use in reversing in EscapeShuttle
 	[Server]

@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Light2D;
@@ -108,6 +107,19 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	private int moveCur = -1;
 	private int moveLimit = -1;
 
+	private bool IsRotating;
+	private float rotateLerp = 0f;
+	private Quaternion fromRotation;
+
+	private MatrixMoveNodes moveNodes = new MatrixMoveNodes();
+
+	public MatrixState SharedState;
+
+	private float moveLerp = 1f;
+	private Vector2 fromPosition;
+	private Vector2 toPosition;
+
+
 	private void RecheckThrusters()
 	{
 		thrusters = GetComponentsInChildren<ShipThruster>(true).ToList();
@@ -140,27 +152,151 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	//	AnimateMovement();
 	}
 
-	///managed by UpdateManager
+	private bool RotateMatrix()
+	{
+		if (IsRotating)
+		{
+			//rotate our transform to our new facing direction
+			if (SharedState.RotationTime != 0)
+			{
+				rotateLerp += Time.deltaTime * SharedState.RotationTime;
+				//animate rotation
+				transform.rotation =
+					Quaternion.Lerp(fromRotation,
+						InitialFacing.OffsetTo(SharedState.FacingDirection).Quaternion,
+						rotateLerp);
+
+				if (rotateLerp >= 1f)
+				{
+					moveNodes.GenerateMoveNodes(transform.position, SharedState.FlyingDirection.VectorInt);
+					transform.rotation = InitialFacing.OffsetTo(SharedState.FacingDirection).Quaternion;
+					IsRotating = false;
+					GetTargetMoveNode();
+				}
+			}
+			else
+			{
+				//rotate instantly
+				transform.rotation = InitialFacing.OffsetTo(SharedState.FacingDirection).Quaternion;
+				IsRotating = false;
+				moveNodes.GenerateMoveNodes(transform.position, SharedState.FlyingDirection.VectorInt);
+				GetTargetMoveNode();
+			}
+
+			return true;
+		}
+		return false;
+	}
+
+	private void MoveMatrix()
+	{
+		if (EnginesOperational && SharedState.Speed > 0f)
+		{
+			moveLerp += Time.deltaTime * SharedState.Speed;
+			transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
+			matrixPositionFilter.FilterPosition(transform, transform.position, SharedState.FlyingDirection, rcsBurn);
+			if (moveLerp >= 1f)
+			{
+				if (isServer)
+				{
+					UpdateServerStatePosition(toPosition);
+					ServerCreateHistoryNode();
+				}
+
+				GetTargetMoveNode();
+				if (rcsBurn) rcsBurn = false;
+			}
+		}
+		else
+		{
+			if (rcsBurn)
+			{
+				moveLerp += Time.deltaTime * 1f;
+				transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
+				matrixPositionFilter.FilterPosition(transform, transform.position, SharedState.FlyingDirection, rcsBurn);
+				if (moveLerp >= 1f)
+				{
+					if (isServer)
+					{
+						UpdateServerStatePosition(toPosition);
+						ServerCreateHistoryNode();
+					}
+
+					transform.position = toPosition; //sometimes it is ever so slightly off the target
+					rcsBurn = false;
+				}
+			}
+			else
+			{
+				//TODO We need to find a good time to ensure client position and server position is correct
+				// if (transform.position != SharedState.Position)
+				// {
+				// 	transform.position = SharedState.Position;
+				// }
+			}
+		}
+	}
+
+	void GetTargetMoveNode()
+	{
+		if (!CanMoveTo(SharedState.FlyingDirection) && SafetyProtocolsOn) return;
+
+		moveLerp = 0f;
+		fromPosition = transform.position;
+		toPosition = moveNodes.GetTargetNode(SharedState.FlyingDirection.VectorInt);
+	}
+
+	///Only change orientation if rotation is finished
+	/// Can be used on client for predictive rotating
+	public void TryRotate(bool clockwise)
+	{
+		if (!IsRotating)
+		{
+			SteerTo(ServerState.FacingDirection.Rotate(clockwise ? 1 : -1));
+		}
+	}
+
+	/// <summary>
+	/// Change facing and flying direction to match specified direction if possible.
+	/// If blocked, returns false. Can be used on client for predictive rotating
+	/// </summary>
+	/// <param name="desiredOrientation"></param>
+	public bool SteerTo(Orientation desiredOrientation)
+	{
+		if (CanRotateTo(desiredOrientation))
+		{
+			if (isServer)
+			{
+				ServerState = new MatrixState
+				{
+					IsMoving = ServerState.IsMoving,
+					Speed = ServerState.Speed,
+					RotationTime = 2f,
+					Position = ServerState.Position,
+					FacingDirection = desiredOrientation,
+					FlyingDirection = desiredOrientation,
+				};
+			}
+
+			SharedState.RotationTime = 2f;
+			SharedState.FacingDirection = desiredOrientation;
+			SharedState.FlyingDirection = desiredOrientation;
+
+			fromRotation = transform.rotation;
+			rotateLerp = 0f;
+			IsRotating = true;
+
+			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this,
+				SharedState.FacingDirection.OffsetTo(desiredOrientation), isServer ? NetworkSide.Server : NetworkSide.Client, RotationEvent.Start));
+
+			return true;
+		}
+
+		return false;
+	}
+
 	public override void LateUpdateMe()
 	{
-		// //finish rotation now that the transform should finally be rotated
-		// if (!NeedsRotationClient && inProgressRotation != null)
-		// {
-		// 	//client and server logic happens here because server also must wait for the rotation to finish lerping.
-		// 	Logger.LogTraceFormat("{0} ending rotation progress to {1}", Category.Matrix, this, inProgressRotation.Value);
-		// 	if (isServer)
-		// 	{
-		// 		MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Server, RotationEvent.End));
-		// 	}
-		// 	MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Client, RotationEvent.End));
-		// 	inProgressRotation = null;
-		// 	if (pendingInitialRotation && !receivedInitialState)
-		// 	{
-		// 		receivedInitialState = true;
-		// 		pendingInitialRotation = false;
-		// 	}
-		// }
-
 		if (isClient)
 		{
 			if(coordReadoutScript != null) coordReadoutScript.SetCoords(ServerState.Position);
