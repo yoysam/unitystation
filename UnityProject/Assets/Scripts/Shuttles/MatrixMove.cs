@@ -118,6 +118,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	private float moveLerp = 1f;
 	private Vector2 fromPosition;
 	private Vector2 toPosition;
+	private bool performingMove = false;
 
 	private void RecheckThrusters()
 	{
@@ -184,12 +185,14 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	{
 		if (EnginesOperational && SharedState.Speed > 0f)
 		{
+			performingMove = true;
 		//	if(!isServer) Debug.Log($"ml {moveLerp} from {fromPosition} to {toPosition}");
 			moveLerp += Time.deltaTime * SharedState.Speed;
 			transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
 			matrixPositionFilter.FilterPosition(transform, transform.position, SharedState.FlyingDirection, rcsBurn);
 			if (moveLerp >= 1f)
 			{
+				performingMove = false;
 			//	Debug.Log("End pos: " + toPosition + " time:  " + NetworkTime.time);
 				CreateHistoryNode();
 				if (isServer)
@@ -211,14 +214,16 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		}
 		else
 		{
-			if (rcsBurn)
+			if (rcsBurn || performingMove)
 			{
+				performingMove = true;
 			//	Debug.Log($"MOVE THIS THING TO : {toPosition}");
 				moveLerp += Time.deltaTime * 1f;
 				transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
 				matrixPositionFilter.FilterPosition(transform, transform.position, SharedState.FlyingDirection, rcsBurn);
 				if (moveLerp >= 1f)
 				{
+					performingMove = false;
 					CreateHistoryNode();
 					if (isServer)
 					{
