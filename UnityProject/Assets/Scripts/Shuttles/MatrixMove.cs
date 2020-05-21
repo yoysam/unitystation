@@ -238,7 +238,6 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 						}
 					}
 
-					transform.position = toPosition; //sometimes it is ever so slightly off the target
 					DoEndRcsBurnChecks();
 				}
 			}

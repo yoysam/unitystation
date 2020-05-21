@@ -127,6 +127,7 @@ public partial class MatrixMove
 			MatrixMoveEvents.OnStartEnginesServer.Invoke();
 			EnginesOperational = true;
 			moveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
+			GetTargetMoveNode();
 		}
 		else
 		{

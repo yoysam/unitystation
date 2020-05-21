@@ -125,6 +125,7 @@ public partial class MatrixMove
 		if (!oldState.IsMoving && newState.IsMoving)
 		{
 			MatrixMoveEvents.OnStartMovementClient.Invoke();
+			GetTargetMoveNode();
 		}
 		Debug.Log($"Speed from server {newState.Speed} client speed {SharedState.Speed}");
 		SharedState.Speed = newState.Speed;

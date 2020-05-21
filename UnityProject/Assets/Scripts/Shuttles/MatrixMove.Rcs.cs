@@ -68,11 +68,9 @@ public partial class MatrixMove
 
 	private void DoEndRcsBurnChecks()
 	{
-		Debug.Log("Do end rcs burn check: " + pendingRcsMoves.Count);
 		if (pendingRcsMoves.Count > 0)
 		{
 			var pendingMove = pendingRcsMoves.Dequeue();
-			Debug.Log("Pending move: " + pendingMove.dir);
 			if (isServer)
 			{
 				MoveViaRcs(pendingMove.dir);
