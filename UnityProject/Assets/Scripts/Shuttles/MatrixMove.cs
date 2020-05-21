@@ -119,7 +119,6 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	private Vector2 fromPosition;
 	private Vector2 toPosition;
 
-
 	private void RecheckThrusters()
 	{
 		thrusters = GetComponentsInChildren<ShipThruster>(true).ToList();
@@ -141,15 +140,8 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	public override void UpdateMe()
 	{
-		if (isServer)
-		{
-			CheckMovementServer();
-		}
-		else
-		{
-			CheckMovementClient();
-		}
-	//	AnimateMovement();
+		if (RotateMatrix()) return;
+		MoveMatrix();
 	}
 
 	private bool RotateMatrix()
@@ -192,23 +184,28 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	{
 		if (EnginesOperational && SharedState.Speed > 0f)
 		{
+		//	if(!isServer) Debug.Log($"ml {moveLerp} from {fromPosition} to {toPosition}");
 			moveLerp += Time.deltaTime * SharedState.Speed;
 			transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
 			matrixPositionFilter.FilterPosition(transform, transform.position, SharedState.FlyingDirection, rcsBurn);
 			if (moveLerp >= 1f)
 			{
-				Debug.Log("End pos: " + toPosition + " time:  " + NetworkTime.time);
+			//	Debug.Log("End pos: " + toPosition + " time:  " + NetworkTime.time);
+				CreateHistoryNode();
 				if (isServer)
 				{
 					UpdateServerStatePosition(toPosition);
-					ServerCreateHistoryNode();
+					GetTargetMoveNode();
 				}
 				else
 				{
-					ClientLagMonitor();
+					if (!ClientLagMonitor())
+					{
+						GetTargetMoveNode();
+					}
 				}
 
-				GetTargetMoveNode();
+
 				if (rcsBurn) DoEndRcsBurnChecks();
 			}
 		}
@@ -216,50 +213,39 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		{
 			if (rcsBurn)
 			{
+			//	Debug.Log($"MOVE THIS THING TO : {toPosition}");
 				moveLerp += Time.deltaTime * 1f;
 				transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
 				matrixPositionFilter.FilterPosition(transform, transform.position, SharedState.FlyingDirection, rcsBurn);
 				if (moveLerp >= 1f)
 				{
+					CreateHistoryNode();
 					if (isServer)
 					{
 						UpdateServerStatePosition(toPosition);
-						ServerCreateHistoryNode();
+						GetTargetMoveNode();
+					}
+					else
+					{
+						if (!ClientLagMonitor())
+						{
+							GetTargetMoveNode();
+						}
 					}
 
 					transform.position = toPosition; //sometimes it is ever so slightly off the target
 					DoEndRcsBurnChecks();
 				}
 			}
-			else
-			{
-				//TODO We need to find a good time to ensure client position and server position is correct
-				// if (transform.position != SharedState.Position)
-				// {
-				// 	transform.position = SharedState.Position;
-				// }
-			}
 		}
 	}
 
-	/// Logic that monitors lag on the client
-	/// and adjusts move nodes if client is too far behind
-	/// server. Causing client to move faster to the next target
-	void ClientLagMonitor()
+	private void CreateHistoryNode()
 	{
-		if (serverHistory[0].networkTime == -1) return;
-
-		var timeDiff = NetworkTime.time - serverHistory[0].networkTime;
-		if (timeDiff < 0) timeDiff *= -1;
-
-		// if (timeDiff < 0.4) return; //not bad enough lag
-		Debug.Log($"Check Time diff {timeDiff} {serverHistory[0].nodePos} {toPosition}");
-		//check if we need to do anything:
-		if (serverHistory[0].nodePos != toPosition)
+		var node = moveNodes.AddHistoryNode(toPosition.To2Int(), NetworkTime.time);
+		if (isServer)
 		{
-			Debug.Log("Compensator ");
-			moveNodes.GenerateMoveNodes(serverHistory[0].nodePos, ServerState.FlyingDirection.VectorInt);
-			SharedState = ServerState;
+			RpcReceiveServerHistoryNode(node);
 		}
 	}
 
@@ -319,6 +305,26 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		}
 
 		return false;
+	}
+
+	/// Set ship's speed using absolute value. it will be truncated if it's out of bounds
+	public void SetSpeed(float absoluteValue)
+	{
+		var speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed);
+		if (isServer)
+		{
+			ServerState = new MatrixState
+			{
+				IsMoving = ServerState.IsMoving,
+				Speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed),
+				RotationTime = ServerState.RotationTime,
+				Position = ServerState.Position,
+				FacingDirection = ServerState.FacingDirection,
+				FlyingDirection = ServerState.FlyingDirection
+			};
+		}
+
+		SharedState.Speed = speed;
 	}
 
 	public override void LateUpdateMe()

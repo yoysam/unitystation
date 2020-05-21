@@ -43,7 +43,6 @@ public partial class MatrixMove
 		Vector3Int initialPositionInt =
 			Vector3Int.RoundToInt(new Vector3(transform.position.x, transform.position.y, 0));
 		SyncInitialPosition(initialPosition, initialPositionInt);
-
 		var child = transform.GetChild(0);
 		matrixInfo = MatrixManager.Get(child.gameObject);
 		var childPosition =
@@ -128,7 +127,6 @@ public partial class MatrixMove
 			MatrixMoveEvents.OnStartEnginesServer.Invoke();
 			EnginesOperational = true;
 			moveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
-			GetTargetMoveNode();
 		}
 		else
 		{
@@ -249,24 +247,7 @@ public partial class MatrixMove
 		Target = TransformState.HiddenPos;
 	}
 
-	/// Set ship's speed using absolute value. it will be truncated if it's out of bounds
-	public void SetSpeed(float absoluteValue)
-	{
-		if (isServer)
-		{
-			ServerState = new MatrixState
-			{
-				IsMoving = ServerState.IsMoving,
-				Speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed),
-				RotationTime = ServerState.RotationTime,
-				Position = ServerState.Position,
-				FacingDirection = ServerState.FacingDirection,
-				FlyingDirection = ServerState.FlyingDirection
-			};
-		}
 
-		SharedState.Speed = absoluteValue;
-	}
 
 	[Server]
 	public void ServerSetMoving(bool isMoving)
@@ -283,13 +264,9 @@ public partial class MatrixMove
 	}
 
 	/// Serverside movement routine
-	[Server]
-	private void CheckMovementServer()
-	{
-
-		if (RotateMatrix()) return;
-		MoveMatrix();
-
+	// [Server]
+	// private void CheckMovementServer()
+	// {
 		//ServerState lerping to its target tile
 
 		//	Vector3? actualNewPosition = null;
@@ -348,12 +325,9 @@ public partial class MatrixMove
 //			StopMovement();
 //			TryNotifyPlayers();
 //		}
-	}
+//	}
 
-	private void ServerCreateHistoryNode()
-	{
-		RpcReceiveServerHistoryNode(moveNodes.AddHistoryNode(toPosition.To2Int(), NetworkTime.time));
-	}
+
 
 	[Server]
 	private void UpdateServerStatePosition(Vector2 position)

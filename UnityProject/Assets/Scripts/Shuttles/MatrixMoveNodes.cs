@@ -5,7 +5,7 @@ using UnityEngine;
 public class MatrixMoveNodes
 {
 	public Vector2Int[] nodes = new Vector2Int[4];
-	public HistoryNode[] historyNodes = new HistoryNode[4];
+	public HistoryNode[] historyNodes = new HistoryNode[60];
 
 	/// <summary>
 	/// Generates new travel nodes based on the start position
@@ -13,7 +13,6 @@ public class MatrixMoveNodes
 	/// </summary>
 	public void GenerateMoveNodes(Vector2 fromPosition, Vector2Int direction)
 	{
-		ResetHistoryNodes();
 		var lastNode = Vector2Int.RoundToInt(fromPosition);
 		for (int i = 0; i < nodes.Length; i++)
 		{
