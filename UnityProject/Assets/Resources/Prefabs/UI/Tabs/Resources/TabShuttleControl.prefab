@@ -540,6 +540,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ServerMethod:
     m_PersistentCalls:
+      m_Calls: []
+  ServerMethodWithSubject:
+    m_PersistentCalls:
       m_Calls:
       - m_Target: {fileID: 114343398355056170}
         m_MethodName: SetSpeed

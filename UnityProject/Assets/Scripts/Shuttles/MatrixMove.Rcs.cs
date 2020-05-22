@@ -33,10 +33,7 @@ public partial class MatrixMove
 			var dir = moveActions.Direction();
 			if (!isServer)
 			{
-				// if (MoveViaRcs(dir))
-				// {
-					RcsMovementMessage.Send(dir, netId);
-				// }
+				RcsMovementMessage.Send(dir, netId);
 			}
 			else
 			{
@@ -62,7 +59,6 @@ public partial class MatrixMove
 	{
 		if (pendingRcsMoves.Count > 0)
 		{
-			Debug.Log("PENDING RCS");
 			var pendingMove = pendingRcsMoves.Dequeue();
 			if (isServer)
 			{
@@ -85,7 +81,6 @@ public partial class MatrixMove
 	{
 		if (rcsBurn)
 		{
-			Debug.Log("SAVE THIS ONE WE ARE BURNIN");
 			pendingRcsMoves.Enqueue(new PendingRcsMove
 			{
 				requestedBy = requestBy,
@@ -93,7 +88,7 @@ public partial class MatrixMove
 			});
 			return;
 		}
-		Debug.Log("Send it directly to the RCS BURNERS BABY");
+
 		MoveViaRcs(dir);
 	}
 

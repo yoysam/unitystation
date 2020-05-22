@@ -10,10 +10,11 @@ public struct MatrixMotionState : IEquatable<MatrixMotionState>
 	public float Speed;
 
 	public Vector3 Position;
+	public uint Interactee;
 
 	public bool Equals(MatrixMotionState other)
 	{
-		return IsMoving == other.IsMoving && Speed.Equals(other.Speed) && Position.Equals(other.Position);
+		return IsMoving == other.IsMoving && Speed.Equals(other.Speed) && Position.Equals(other.Position) && Equals(Interactee, other.Interactee);
 	}
 
 	public override bool Equals(object obj)
@@ -28,6 +29,7 @@ public struct MatrixMotionState : IEquatable<MatrixMotionState>
 			var hashCode = IsMoving.GetHashCode();
 			hashCode = (hashCode * 397) ^ Speed.GetHashCode();
 			hashCode = (hashCode * 397) ^ Position.GetHashCode();
+			hashCode = (hashCode * 397) ^ (Interactee != null ? Interactee.GetHashCode() : 0);
 			return hashCode;
 		}
 	}

@@ -23,6 +23,7 @@ public class NetSlider : NetUIStringElement
 	}
 
 	public FloatEvent ServerMethod;
+	public FloatEventWithSubject ServerMethodWithSubject;
 
 	private Slider element;
 	public Slider Element
@@ -39,10 +40,13 @@ public class NetSlider : NetUIStringElement
 
 	public override void ExecuteServer(ConnectedPlayer subject)
 	{
-		ServerMethod.Invoke(Element.value);
+		ServerMethod?.Invoke(Element.value);
+		ServerMethodWithSubject?.Invoke(Element.value, subject);
 	}
 }
 /// <inheritdoc />
 /// "If you wish to use a generic UnityEvent type you must override the class type."
 [Serializable]
 public class FloatEvent : UnityEvent<float>{}
+[Serializable]
+public class FloatEventWithSubject : UnityEvent<float, ConnectedPlayer>{}

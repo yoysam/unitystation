@@ -13,6 +13,7 @@ public partial class MatrixMove
 	private bool clientStarted;
 	private bool receivedInitialState;
 	private bool pendingInitialRotation;
+	private float lastSpeed = 1f;
 	/// <summary>
 	/// Has this matrix move finished receiving its initial state from the server and rotating into its correct
 	/// position?
@@ -22,6 +23,7 @@ public partial class MatrixMove
 
 	public override void OnStartClient()
 	{
+		fromPosition = toPosition;
 		SyncPivot(pivot, pivot);
 		SyncInitialPosition(initialPosition, initialPosition);
 		UpdateClientFacingState(new MatrixFacingState(), serverFacingState);
@@ -43,7 +45,8 @@ public partial class MatrixMove
 	[ClientRpc]
 	private void RpcReceiveServerHistoryNode(HistoryNode historyNode)
 	{
-//		Debug.Log($"SERVER HISTORY: {historyNode.nodePos} {historyNode.networkTime}");
+		if (isServer) return;
+
 		for (int i = serverHistory.Length - 2; i >= 0; i--)
 		{
 			serverHistory[i + 1] = serverHistory[i];
@@ -52,56 +55,24 @@ public partial class MatrixMove
 				serverHistory[i] = historyNode;
 			}
 		}
-	}
 
-	/// Logic that monitors lag on the client
-	/// and adjusts move nodes if client is too far behind
-	/// server. Causing client to move faster to the next target
-	// bool ClientLagMonitor()
-	// {
-	// 	if (serverHistory[0].networkTime == -1 ||
-	// 	    serverHistory[0].nodePos == Vector2Int.zero)
-	// 	{
-	// 		Debug.Log("No client lag monitor");
-	// 		return false;
-	// 	}
-	//
-	// 	var timeDiff = NetworkTime.time - serverHistory[0].networkTime;
-	// 	if (timeDiff < 0) timeDiff *= -1;
-	//
-	// //	Debug.Log($"Check Time diff {timeDiff} {serverHistory[0].nodePos} {toPosition}");
-	//
-	// 	var pastEntry = moveNodes.historyNodes.FirstOrDefault(x => x.nodePos == serverHistory[0].nodePos);
-	// 	if (pastEntry.nodePos != Vector2Int.zero &&
-	// 	    pastEntry.networkTime != 0)
-	// 	{
-	// 		Debug.Log($"Past entry found: {pastEntry.networkTime} {pastEntry.nodePos}");
-	// 		var timeDiffEntry = (pastEntry.networkTime - serverHistory[0].networkTime) - NetworkTime.rtt;
-	// 		if (timeDiffEntry < 0) timeDiffEntry *= -1;
-	//
-	// 		Debug.Log($"entry diff was {timeDiffEntry}");
-	// 		if (timeDiffEntry < 0.5)
-	// 		{
-	// 			Debug.Log("Don't do any compensation");
-	// 			return false;
-	// 		}
-	// 	}
-	//
-	// 	//check if we need to do anything:
-	// 	if (serverHistory[0].nodePos != toPosition)
-	// 	{
-	// 		Debug.Log("Compensator ");
-	// 		moveNodes.GenerateMoveNodes(serverHistory[1].nodePos, serverFacingState.FlyingDirection.VectorInt);
-	// 		sharedFacingState = serverFacingState;
-	// 		GetTargetMoveNode();
-	// 		performingMove = true;
-	// 		return true;
-	// 	}
-	//
-	// 	Debug.Log($"Didn't do nothin server history {serverHistory[0].nodePos} " +
-	// 	          $"to pos {toPosition}");
-	// 	return false;
-	// }
+		Debug.Log($"Server history pos {historyNode.nodePos} time: {historyNode.networkTime} our pos {transform.position} time: {NetworkTime.time} ");
+
+		var diff = NetworkTime.time - historyNode.networkTime;
+		var diffWithRttAdjust = diff - NetworkTime.rtt;
+		Debug.Log($"Diff {diff} diff with rtt adjust {diffWithRttAdjust}");
+		Debug.Log($"Clients speed state {sharedMotionState.Speed}");
+
+		if (sharedMotionState.Speed == 0)
+		{
+			fromPosition = transform.position;
+			toPosition = historyNode.nodePos;
+			speedAdjust = Mathf.Round(Vector2.Distance(fromPosition, toPosition));
+			moveLerp = 0f;
+			performingMove = true;
+			moveNodes.GenerateMoveNodes(toPosition, sharedFacingState.FlyingDirection.VectorInt);
+		}
+	}
 
 	public void UpdateClientMotionState(MatrixMotionState oldMotionState, MatrixMotionState newMotionState)
 	{
@@ -112,8 +83,25 @@ public partial class MatrixMove
 			MatrixMoveEvents.OnStartMovementClient.Invoke();
 			GetTargetMoveNode();
 		}
-	//	Debug.Log($"Speed from server {newMotionState.Speed} client speed {sharedMotionState.Speed}");
+
+		if (newMotionState.Interactee != NetId.Invalid)
+		{
+			if (NetworkIdentity.spawned.ContainsKey(newMotionState.Interactee))
+			{
+				Debug.Log("Set by: " + NetworkIdentity.spawned[newMotionState.Interactee].name);
+			}
+		}
 		sharedMotionState.Speed = newMotionState.Speed;
+
+		if (sharedMotionState.Speed == 0)
+		{
+			fromPosition = transform.position;
+			toPosition = newMotionState.Position;
+			speedAdjust = Mathf.Round(Vector2.Distance(fromPosition, toPosition));
+			moveLerp = 0f;
+			performingMove = true;
+			moveNodes.GenerateMoveNodes(toPosition, sharedFacingState.FlyingDirection.VectorInt);
+		}
 
 		if (oldMotionState.IsMoving && !newMotionState.IsMoving)
 		{

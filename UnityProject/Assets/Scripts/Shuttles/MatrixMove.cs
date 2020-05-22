@@ -120,6 +120,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	private Vector2 fromPosition;
 	private Vector2 toPosition;
 	private bool performingMove = false;
+	private float speedAdjust = 0f;
 
 	private void RecheckThrusters()
 	{
@@ -188,7 +189,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		{
 			performingMove = true;
 		//	if(!isServer) Debug.Log($"ml {moveLerp} from {fromPosition} to {toPosition}");
-			moveLerp += Time.deltaTime * sharedMotionState.Speed;
+			moveLerp += Time.deltaTime * (sharedMotionState.Speed + speedAdjust);
 			transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
 			matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FlyingDirection, rcsBurn);
 			if (moveLerp >= 1f)
@@ -206,7 +207,6 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 					GetTargetMoveNode();
 				}
 
-
 				if (rcsBurn) DoEndRcsBurnChecks();
 			}
 		}
@@ -215,7 +215,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 			if (rcsBurn || performingMove)
 			{
 				performingMove = true;
-				moveLerp += Time.deltaTime * 1f;
+				moveLerp += Time.deltaTime * (1f + speedAdjust);
 				transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
 				matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FlyingDirection, rcsBurn);
 				if (moveLerp >= 1f)
@@ -249,6 +249,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	void GetTargetMoveNode(bool disregardChecks = false)
 	{
+		speedAdjust = 0f;
 		if (!CanMoveTo(sharedFacingState.FlyingDirection) && SafetyProtocolsOn && !disregardChecks) return;
 
 		moveLerp = 0f;
@@ -266,9 +267,15 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	}
 
 	/// Set ship's speed using absolute value. it will be truncated if it's out of bounds
-	public void SetSpeed(float absoluteValue)
+	public void SetSpeed(float absoluteValue, GameObject interactee = null)
 	{
 		var speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed);
+
+		uint netId = NetId.Invalid;
+		if (interactee != null)
+		{
+			netId = interactee.GetComponent<NetworkIdentity>().netId;
+		}
 		if (isServer)
 		{
 			serverMotionState = new MatrixMotionState
@@ -276,6 +283,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 				IsMoving = serverMotionState.IsMoving,
 				Speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed),
 				Position = serverMotionState.Position,
+				Interactee = netId
 			};
 		}
 

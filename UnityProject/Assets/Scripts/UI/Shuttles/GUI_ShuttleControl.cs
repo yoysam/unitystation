@@ -416,7 +416,7 @@ public class GUI_ShuttleControl : NetTab
 	/// Sets shuttle speed.
 	/// </summary>
 	/// <param name="speedMultiplier"></param>
-	public void SetSpeed(float speedMultiplier)
+	public void SetSpeed(float speedMultiplier, ConnectedPlayer player)
 	{
 		if (MatrixMove == null)
 		{
@@ -425,6 +425,6 @@ public class GUI_ShuttleControl : NetTab
 		}
 		float speed = speedMultiplier * (MatrixMove.MaxSpeed - 1);
 
-		MatrixMove.SetSpeed(speed);
+		MatrixMove.SetSpeed(speed, player.GameObject);
 	}
 }
