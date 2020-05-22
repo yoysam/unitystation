@@ -66,7 +66,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	/// Gets the rotation offset this matrix has from its initial mapped
 	/// facing.
 	/// </summary>
-	public RotationOffset FacingOffsetFromInitial => ServerState.FacingOffsetFromInitial(this);
+	public RotationOffset FacingOffsetFromInitial => serverFacingState.FacingOffsetFromInitial(this);
 
 	/// <summary>
 	/// If it is currently fuelled
@@ -113,7 +113,8 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	private MatrixMoveNodes moveNodes = new MatrixMoveNodes();
 
-	public MatrixState SharedState;
+	public MatrixFacingState sharedFacingState;
+	public MatrixMotionState sharedMotionState;
 
 	private float moveLerp = 1f;
 	private Vector2 fromPosition;
@@ -150,19 +151,19 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		if (IsRotating)
 		{
 			//rotate our transform to our new facing direction
-			if (SharedState.RotationTime != 0)
+			if (sharedFacingState.RotationTime != 0)
 			{
-				rotateLerp += Time.deltaTime * SharedState.RotationTime;
+				rotateLerp += Time.deltaTime * sharedFacingState.RotationTime;
 				//animate rotation
 				transform.rotation =
 					Quaternion.Lerp(fromRotation,
-						InitialFacing.OffsetTo(SharedState.FacingDirection).Quaternion,
+						InitialFacing.OffsetTo(sharedFacingState.FacingDirection).Quaternion,
 						rotateLerp);
 
 				if (rotateLerp >= 1f)
 				{
-					moveNodes.GenerateMoveNodes(transform.position, SharedState.FlyingDirection.VectorInt);
-					transform.rotation = InitialFacing.OffsetTo(SharedState.FacingDirection).Quaternion;
+					moveNodes.GenerateMoveNodes(transform.position, sharedFacingState.FlyingDirection.VectorInt);
+					transform.rotation = InitialFacing.OffsetTo(sharedFacingState.FacingDirection).Quaternion;
 					IsRotating = false;
 					GetTargetMoveNode();
 				}
@@ -170,9 +171,9 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 			else
 			{
 				//rotate instantly
-				transform.rotation = InitialFacing.OffsetTo(SharedState.FacingDirection).Quaternion;
+				transform.rotation = InitialFacing.OffsetTo(sharedFacingState.FacingDirection).Quaternion;
 				IsRotating = false;
-				moveNodes.GenerateMoveNodes(transform.position, SharedState.FlyingDirection.VectorInt);
+				moveNodes.GenerateMoveNodes(transform.position, sharedFacingState.FlyingDirection.VectorInt);
 				GetTargetMoveNode();
 			}
 
@@ -183,13 +184,13 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	private void MoveMatrix()
 	{
-		if (EnginesOperational && SharedState.Speed > 0f)
+		if (EnginesOperational && sharedMotionState.Speed > 0f)
 		{
 			performingMove = true;
 		//	if(!isServer) Debug.Log($"ml {moveLerp} from {fromPosition} to {toPosition}");
-			moveLerp += Time.deltaTime * SharedState.Speed;
+			moveLerp += Time.deltaTime * sharedMotionState.Speed;
 			transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
-			matrixPositionFilter.FilterPosition(transform, transform.position, SharedState.FlyingDirection, rcsBurn);
+			matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FlyingDirection, rcsBurn);
 			if (moveLerp >= 1f)
 			{
 				performingMove = false;
@@ -202,10 +203,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 				}
 				else
 				{
-					if (!ClientLagMonitor())
-					{
-						GetTargetMoveNode();
-					}
+					GetTargetMoveNode();
 				}
 
 
@@ -217,10 +215,9 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 			if (rcsBurn || performingMove)
 			{
 				performingMove = true;
-			//	Debug.Log($"MOVE THIS THING TO : {toPosition}");
 				moveLerp += Time.deltaTime * 1f;
 				transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
-				matrixPositionFilter.FilterPosition(transform, transform.position, SharedState.FlyingDirection, rcsBurn);
+				matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FlyingDirection, rcsBurn);
 				if (moveLerp >= 1f)
 				{
 					performingMove = false;
@@ -232,10 +229,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 					}
 					else
 					{
-						if (!ClientLagMonitor())
-						{
-							GetTargetMoveNode();
-						}
+						GetTargetMoveNode();
 					}
 
 					DoEndRcsBurnChecks();
@@ -253,62 +247,22 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		}
 	}
 
-	void GetTargetMoveNode()
+	void GetTargetMoveNode(bool disregardChecks = false)
 	{
-		if (!CanMoveTo(SharedState.FlyingDirection) && SafetyProtocolsOn) return;
+		if (!CanMoveTo(sharedFacingState.FlyingDirection) && SafetyProtocolsOn && !disregardChecks) return;
 
 		moveLerp = 0f;
 		fromPosition = transform.position;
-		toPosition = moveNodes.GetTargetNode(SharedState.FlyingDirection.VectorInt);
+		toPosition = moveNodes.GetTargetNode(sharedFacingState.FlyingDirection.VectorInt);
 	}
 
 	///Only change orientation if rotation is finished
-	/// Can be used on client for predictive rotating
 	public void TryRotate(bool clockwise)
 	{
 		if (!IsRotating)
 		{
-			SteerTo(ServerState.FacingDirection.Rotate(clockwise ? 1 : -1));
+			SteerTo(serverFacingState.FacingDirection.Rotate(clockwise ? 1 : -1));
 		}
-	}
-
-	/// <summary>
-	/// Change facing and flying direction to match specified direction if possible.
-	/// If blocked, returns false. Can be used on client for predictive rotating
-	/// </summary>
-	/// <param name="desiredOrientation"></param>
-	public bool SteerTo(Orientation desiredOrientation)
-	{
-		if (CanRotateTo(desiredOrientation))
-		{
-			if (isServer)
-			{
-				ServerState = new MatrixState
-				{
-					IsMoving = ServerState.IsMoving,
-					Speed = ServerState.Speed,
-					RotationTime = 2f,
-					Position = ServerState.Position,
-					FacingDirection = desiredOrientation,
-					FlyingDirection = desiredOrientation,
-				};
-			}
-
-			SharedState.RotationTime = 2f;
-			SharedState.FacingDirection = desiredOrientation;
-			SharedState.FlyingDirection = desiredOrientation;
-
-			fromRotation = transform.rotation;
-			rotateLerp = 0f;
-			IsRotating = true;
-
-			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this,
-				SharedState.FacingDirection.OffsetTo(desiredOrientation), isServer ? NetworkSide.Server : NetworkSide.Client, RotationEvent.Start));
-
-			return true;
-		}
-
-		return false;
 	}
 
 	/// Set ship's speed using absolute value. it will be truncated if it's out of bounds
@@ -317,25 +271,22 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		var speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed);
 		if (isServer)
 		{
-			ServerState = new MatrixState
+			serverMotionState = new MatrixMotionState
 			{
-				IsMoving = ServerState.IsMoving,
+				IsMoving = serverMotionState.IsMoving,
 				Speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed),
-				RotationTime = ServerState.RotationTime,
-				Position = ServerState.Position,
-				FacingDirection = ServerState.FacingDirection,
-				FlyingDirection = ServerState.FlyingDirection
+				Position = serverMotionState.Position,
 			};
 		}
 
-		SharedState.Speed = speed;
+		sharedMotionState.Speed = speed;
 	}
 
 	public override void LateUpdateMe()
 	{
 		if (isClient)
 		{
-			if(coordReadoutScript != null) coordReadoutScript.SetCoords(ServerState.Position);
+			if(coordReadoutScript != null) coordReadoutScript.SetCoords(transform.position);
 			if (shuttleControlGUI != null && rcsModeActive != shuttleControlGUI.RcsMode)
 			{
 				shuttleControlGUI.ClientToggleRcs(rcsModeActive);
@@ -353,7 +304,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		for (var i = 0; i < SensorPositions.Length; i++)
 		{
 			var sensor = SensorPositions[i];
-			Vector3Int sensorPos = MatrixManager.LocalToWorldInt(sensor, matrixInfo, ServerState);
+			Vector3Int sensorPos = MatrixManager.LocalToWorldInt(sensor, matrixInfo, serverFacingState);
 
 			// Exclude the moving matrix, we shouldn't be able to collide with ourselves
 			int[] excludeList = { matrixInfo.Id };
@@ -375,14 +326,14 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		// Feign a rotation using GameObjects for reference
 		Transform rotationSensorContainerTransform = rotationSensorContainerObject.transform;
 		rotationSensorContainerTransform.rotation = new Quaternion();
-		rotationSensorContainerTransform.Rotate(0f, 0f, 90f * ServerState.FlyingDirection.RotationsTo(flyingDirection));
+		rotationSensorContainerTransform.Rotate(0f, 0f, 90f * serverFacingState.FlyingDirection.RotationsTo(flyingDirection));
 
 		for (var i = 0; i < RotationSensors.Length; i++)
 		{
 			var sensor = RotationSensors[i];
 			// Need to pass an aggriate local vector in reference to the Matrix GO to get the correct WorldPos
 			Vector3 localSensorAggrigateVector = (rotationSensorContainerTransform.localRotation * sensor.transform.localPosition) + rotationSensorContainerTransform.localPosition;
-			Vector3Int sensorPos = MatrixManager.LocalToWorldInt(localSensorAggrigateVector, matrixInfo, ServerState);
+			Vector3Int sensorPos = MatrixManager.LocalToWorldInt(localSensorAggrigateVector, matrixInfo, serverFacingState);
 
 			// Exclude the rotating matrix, we shouldn't be able to collide with ourselves
 			int[] excludeList = { matrixInfo.Id };
@@ -414,18 +365,18 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 			Gizmos.color = color1;
 			Gizmos.DrawWireCube(transform.position, Vector3.one );
 
-			DebugGizmoUtils.DrawArrow(transform.position, ServerState.FlyingDirection.Vector*2);
+			DebugGizmoUtils.DrawArrow(transform.position, serverFacingState.FlyingDirection.Vector*2);
 			return;
 		}
 
 		//serverState
 		Gizmos.color = color1;
-		Vector3 serverPos = ServerState.Position;
+		Vector3 serverPos = serverMotionState.Position;
 		Gizmos.DrawWireCube(serverPos, size1);
-		if (ServerState.IsMoving)
+		if (serverMotionState.IsMoving)
 		{
-			DebugGizmoUtils.DrawArrow(serverPos + Vector3.right / 3, ServerState.FlyingDirection.Vector * ServerState.Speed);
-			DebugGizmoUtils.DrawText(ServerState.Speed.ToString(), serverPos + Vector3.right, 15);
+			DebugGizmoUtils.DrawArrow(serverPos + Vector3.right / 3, serverFacingState.FlyingDirection.Vector * serverMotionState.Speed);
+			DebugGizmoUtils.DrawText(serverMotionState.Speed.ToString(), serverPos + Vector3.right, 15);
 		}
 	}
 #endif

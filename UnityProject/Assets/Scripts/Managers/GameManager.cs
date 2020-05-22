@@ -118,7 +118,7 @@ public partial class GameManager : MonoBehaviour
 	///</summary>
 	public void ServerSetSpaceBody(MatrixMove mm)
 	{
-		if (mm.ServerState.Position == TransformState.HiddenPos)
+		if (mm.serverMotionState.Position == TransformState.HiddenPos)
 		{
 			Logger.LogError("Matrix Move is not initialized! Wait for it to be" +
 				"ready before calling ServerSetSpaceBody ", Category.Server);

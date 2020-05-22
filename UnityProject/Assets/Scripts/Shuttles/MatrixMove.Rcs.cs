@@ -33,10 +33,10 @@ public partial class MatrixMove
 			var dir = moveActions.Direction();
 			if (!isServer)
 			{
-				if (MoveViaRcs(dir))
-				{
+				// if (MoveViaRcs(dir))
+				// {
 					RcsMovementMessage.Send(dir, netId);
-				}
+				// }
 			}
 			else
 			{
@@ -50,15 +50,7 @@ public partial class MatrixMove
 	{
 		if (sentBy == playerControllingRcs && dir != Vector2Int.zero)
 		{
-			if (rcsBurn)
-			{
-				pendingRcsMoves.Enqueue(new PendingRcsMove
-				{
-					requestedBy = sentBy.GameObject,
-					dir = dir
-				});
-			}
-			else
+			if (!rcsBurn)
 			{
 				MoveViaRcs(dir);
 				RpcRcsMove(dir, sentBy.GameObject);
@@ -70,6 +62,7 @@ public partial class MatrixMove
 	{
 		if (pendingRcsMoves.Count > 0)
 		{
+			Debug.Log("PENDING RCS");
 			var pendingMove = pendingRcsMoves.Dequeue();
 			if (isServer)
 			{
@@ -90,13 +83,9 @@ public partial class MatrixMove
 	[ClientRpc]
 	private void RpcRcsMove(Vector2Int dir, GameObject requestBy)
 	{
-		if (PlayerManager.LocalPlayer != null && PlayerManager.LocalPlayer == requestBy)
-		{
-			return;
-		}
-
 		if (rcsBurn)
 		{
+			Debug.Log("SAVE THIS ONE WE ARE BURNIN");
 			pendingRcsMoves.Enqueue(new PendingRcsMove
 			{
 				requestedBy = requestBy,
@@ -104,19 +93,19 @@ public partial class MatrixMove
 			});
 			return;
 		}
-
+		Debug.Log("Send it directly to the RCS BURNERS BABY");
 		MoveViaRcs(dir);
 	}
 
 	private bool MoveViaRcs(Vector2Int dir)
 	{
 		rcsBurn = true;
-		if (SharedState.Speed > 0f)
+		if (sharedMotionState.Speed > 0f)
 		{
 			//matrix is moving we need to strafe instead
 			//(forward and reverse will be ignored)
-			if (SharedState.FlyingDirection.VectorInt != dir &&
-			    SharedState.FlyingDirection.VectorInt * -1 != dir)
+			if (sharedFacingState.FlyingDirection.VectorInt != dir &&
+			    sharedFacingState.FlyingDirection.VectorInt * -1 != dir)
 			{
 				moveNodes.AdjustFutureNodes(dir);
 				toPosition += dir;

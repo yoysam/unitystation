@@ -10,7 +10,7 @@ public class RadarList : NetUIDynamicList {
 	private List<RadarEntry> ToRestore = new List<RadarEntry>();
 
 	public void RefreshTrackedPos(bool update = true) {
-		Vector2 originPos = Origin.ServerState.Position;
+		Vector2 originPos = Origin.serverMotionState.Position;
 
 		//Refreshing positions of every item
 		var entryArray = Entries;

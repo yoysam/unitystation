@@ -59,7 +59,7 @@ public class Asteroid : NetworkBehaviour
 	//Wait for MatrixMove init on the server:
 	IEnumerator Init()
 	{
-		while (mm.ServerState.Position == TransformState.HiddenPos)
+		while (mm.serverMotionState.Position == TransformState.HiddenPos)
 		{
 			yield return WaitFor.EndOfFrame;
 		}

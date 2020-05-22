@@ -9,9 +9,11 @@ using UnityEngine;
 public partial class MatrixMove
 {
 	//server-only values
-	[SyncVar(hook=nameof(UpdateClientState))]
-	public MatrixState ServerState;
-	public bool IsMovingServer => ServerState.IsMoving && ServerState.Speed > 0f;
+	[SyncVar(hook=nameof(UpdateClientFacingState))]
+	public MatrixFacingState serverFacingState;
+	[SyncVar(hook=nameof(UpdateClientMotionState))]
+	public MatrixMotionState serverMotionState;
+	public bool IsMovingServer => serverMotionState.IsMoving && serverMotionState.Speed > 0f;
 
 	//Autopilot target
 	private Vector3 Target = TransformState.HiddenPos;
@@ -49,11 +51,15 @@ public partial class MatrixMove
 			Vector3Int.CeilToInt(new Vector3(child.transform.position.x, child.transform.position.y, 0));
 		SyncPivot(pivot, initialPosition - childPosition);
 
-		ServerState = new MatrixState
+		serverFacingState = new MatrixFacingState
 		{
 			FlyingDirection = InitialFacing,
-			FacingDirection = InitialFacing,
-			Position = initialPosition
+			FacingDirection = InitialFacing
+		};
+
+		serverMotionState = new MatrixMotionState
+		{
+			Position = initialPositionInt
 		};
 
 		RecheckThrusters();
@@ -96,7 +102,7 @@ public partial class MatrixMove
 			SensorPositions = sensors.Select(sensor => Vector3Int.RoundToInt(sensor.transform.localPosition)).ToArray();
 
 			Logger.Log($"Initialized sensors at {string.Join(",", SensorPositions)}," +
-			           $" direction is {ServerState.FlyingDirection}", Category.Matrix);
+			           $" direction is {serverFacingState.FlyingDirection}", Category.Matrix);
 		}
 
 		if (RotationSensors == null)
@@ -116,7 +122,7 @@ public partial class MatrixMove
 			RotationSensors = sensors.Select(sensor => sensor.gameObject).ToArray();
 		}
 
-		SharedState = ServerState;
+		sharedFacingState = serverFacingState;
 	}
 
 	[Server]
@@ -126,7 +132,7 @@ public partial class MatrixMove
 		{
 			MatrixMoveEvents.OnStartEnginesServer.Invoke();
 			EnginesOperational = true;
-			moveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
+			moveNodes.GenerateMoveNodes(transform.position, serverFacingState.FlyingDirection.VectorInt);
 			GetTargetMoveNode();
 		}
 		else
@@ -196,6 +202,41 @@ public partial class MatrixMove
 		}
 	}
 
+	/// <summary>
+	/// Change facing and flying direction to match specified direction if possible.
+	/// If blocked, returns false. Can be used on client for predictive rotating
+	/// </summary>
+	/// <param name="desiredOrientation"></param>
+	[Server]
+	public bool SteerTo(Orientation desiredOrientation)
+	{
+		if (CanRotateTo(desiredOrientation))
+		{
+			if (isServer)
+			{
+				serverFacingState = new MatrixFacingState
+				{
+					RotationTime = 2f,
+					FacingDirection = desiredOrientation,
+					FlyingDirection = desiredOrientation,
+				};
+			}
+
+			sharedFacingState = serverFacingState;
+
+			rotateLerp = 0f;
+			fromRotation = transform.rotation;
+
+			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this,
+				sharedFacingState.FacingDirection.OffsetTo(desiredOrientation), isServer ? NetworkSide.Server : NetworkSide.Client, RotationEvent.Start));
+
+			IsRotating = true;
+			return true;
+		}
+
+		return false;
+	}
+
 	/// Stop movement
 	[Server]
 	public void StopMovement()
@@ -253,14 +294,11 @@ public partial class MatrixMove
 	[Server]
 	public void ServerSetMoving(bool isMoving)
 	{
-		ServerState = new MatrixState
+		serverMotionState = new MatrixMotionState
 		{
 			IsMoving = isMoving,
-			Speed = ServerState.Speed,
-			RotationTime = ServerState.RotationTime,
-			Position = ServerState.Position,
-			FacingDirection = ServerState.FacingDirection,
-			FlyingDirection = ServerState.FlyingDirection
+			Speed = serverMotionState.Speed,
+			Position = serverMotionState.Position
 		};
 	}
 
@@ -333,14 +371,11 @@ public partial class MatrixMove
 	[Server]
 	private void UpdateServerStatePosition(Vector2 position)
 	{
-		ServerState = new MatrixState
+		serverMotionState = new MatrixMotionState
 		{
-			IsMoving = ServerState.IsMoving,
-			Speed = ServerState.Speed,
-			RotationTime = ServerState.RotationTime,
-			Position = position,
-			FacingDirection = ServerState.FacingDirection,
-			FlyingDirection = ServerState.FlyingDirection
+			IsMoving = serverMotionState.IsMoving,
+			Speed = serverMotionState.Speed,
+			Position = position
 		};
 	}
 
@@ -416,7 +451,7 @@ public partial class MatrixMove
 			Logger.LogTraceFormat("{0} server target facing  {1}", Category.Matrix, this, newFacingDirection);
 
 			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this,
-				ServerState.FacingDirection.OffsetTo(newFacingDirection), NetworkSide.Server, RotationEvent.Start));
+				serverFacingState.FacingDirection.OffsetTo(newFacingDirection), NetworkSide.Server, RotationEvent.Start));
 
 			RequestNotify();
 			return true;
@@ -442,14 +477,14 @@ public partial class MatrixMove
 	{
 		if (IsAutopilotEngaged)
 		{
-			var pos = ServerState.Position;
+			var pos = serverMotionState.Position;
 			if (Vector3.Distance(pos, Target) <= AccuracyThreshold)
 			{
 				StopMovement();
 				yield break;
 			}
 
-			Orientation currentDir = ServerState.FlyingDirection;
+			Orientation currentDir = serverFacingState.FlyingDirection;
 
 			Vector3 xProjection = Vector3.Project(pos, Vector3.right);
 			int xProjectionX = (int) xProjection.x;
@@ -480,7 +515,7 @@ public partial class MatrixMove
 				}
 			}
 
-			if (!ServerState.IsMoving)
+			if (!serverMotionState.IsMoving)
 			{
 				StartMovement();
 			}

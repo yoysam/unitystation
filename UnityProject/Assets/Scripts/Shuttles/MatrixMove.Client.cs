@@ -7,7 +7,7 @@ using UnityEngine;
 /// </summary>
 public partial class MatrixMove
 {
-	private bool IsMovingClient => ServerState.IsMoving && ServerState.Speed > 0f;
+	private bool IsMovingClient => serverMotionState.IsMoving && serverMotionState.Speed > 0f;
 
 	//tracks status of initializing this matrix move
 	private bool clientStarted;
@@ -24,7 +24,8 @@ public partial class MatrixMove
 	{
 		SyncPivot(pivot, pivot);
 		SyncInitialPosition(initialPosition, initialPosition);
-		UpdateClientState(new MatrixState(), ServerState);
+		UpdateClientFacingState(new MatrixFacingState(), serverFacingState);
+		UpdateClientMotionState(new MatrixMotionState(), serverMotionState);
 		UpdateOperationalState(false, EnginesOperational);
 		clientStarted = true;
 	}
@@ -51,93 +52,102 @@ public partial class MatrixMove
 				serverHistory[i] = historyNode;
 			}
 		}
-
-		if (SharedState.Speed == 0 && !rcsBurn)
-		{
-			ClientLagMonitor();
-		}
 	}
 
 	/// Logic that monitors lag on the client
 	/// and adjusts move nodes if client is too far behind
 	/// server. Causing client to move faster to the next target
-	bool ClientLagMonitor()
-	{
-		if (serverHistory[0].networkTime == -1 ||
-		    serverHistory[0].nodePos == Vector2Int.zero) return false;
+	// bool ClientLagMonitor()
+	// {
+	// 	if (serverHistory[0].networkTime == -1 ||
+	// 	    serverHistory[0].nodePos == Vector2Int.zero)
+	// 	{
+	// 		Debug.Log("No client lag monitor");
+	// 		return false;
+	// 	}
+	//
+	// 	var timeDiff = NetworkTime.time - serverHistory[0].networkTime;
+	// 	if (timeDiff < 0) timeDiff *= -1;
+	//
+	// //	Debug.Log($"Check Time diff {timeDiff} {serverHistory[0].nodePos} {toPosition}");
+	//
+	// 	var pastEntry = moveNodes.historyNodes.FirstOrDefault(x => x.nodePos == serverHistory[0].nodePos);
+	// 	if (pastEntry.nodePos != Vector2Int.zero &&
+	// 	    pastEntry.networkTime != 0)
+	// 	{
+	// 		Debug.Log($"Past entry found: {pastEntry.networkTime} {pastEntry.nodePos}");
+	// 		var timeDiffEntry = (pastEntry.networkTime - serverHistory[0].networkTime) - NetworkTime.rtt;
+	// 		if (timeDiffEntry < 0) timeDiffEntry *= -1;
+	//
+	// 		Debug.Log($"entry diff was {timeDiffEntry}");
+	// 		if (timeDiffEntry < 0.5)
+	// 		{
+	// 			Debug.Log("Don't do any compensation");
+	// 			return false;
+	// 		}
+	// 	}
+	//
+	// 	//check if we need to do anything:
+	// 	if (serverHistory[0].nodePos != toPosition)
+	// 	{
+	// 		Debug.Log("Compensator ");
+	// 		moveNodes.GenerateMoveNodes(serverHistory[1].nodePos, serverFacingState.FlyingDirection.VectorInt);
+	// 		sharedFacingState = serverFacingState;
+	// 		GetTargetMoveNode();
+	// 		performingMove = true;
+	// 		return true;
+	// 	}
+	//
+	// 	Debug.Log($"Didn't do nothin server history {serverHistory[0].nodePos} " +
+	// 	          $"to pos {toPosition}");
+	// 	return false;
+	// }
 
-		var timeDiff = NetworkTime.time - serverHistory[0].networkTime;
-		if (timeDiff < 0) timeDiff *= -1;
-
-	//	Debug.Log($"Check Time diff {timeDiff} {serverHistory[0].nodePos} {toPosition}");
-
-		var pastEntry = moveNodes.historyNodes.FirstOrDefault(x => x.nodePos == serverHistory[0].nodePos);
-		if (pastEntry.nodePos != Vector2Int.zero &&
-		    pastEntry.networkTime != 0)
-		{
-	//		Debug.Log($"Past entry found: {pastEntry.networkTime} {pastEntry.nodePos}");
-			var timeDiffEntry = pastEntry.networkTime - serverHistory[0].networkTime;
-			if (timeDiffEntry < 0) timeDiffEntry *= -1;
-
-	//		Debug.Log($"Lets try to return now but the entry diff was {timeDiffEntry}");
-			return false;
-		}
-
-		//check if we need to do anything:
-		if (serverHistory[0].nodePos != toPosition)
-		{
-	//		Debug.Log("Compensator ");
-			rcsBurn = true;
-			moveNodes.GenerateMoveNodes(serverHistory[0].nodePos, ServerState.FlyingDirection.VectorInt);
-			SharedState = ServerState;
-			GetTargetMoveNode();
-			return true;
-		}
-		return false;
-	}
-
-	/// Called when MatrixMoveMessage is received
-	public void UpdateClientState(MatrixState oldState, MatrixState newState)
+	public void UpdateClientMotionState(MatrixMotionState oldMotionState, MatrixMotionState newMotionState)
 	{
 		if (isServer) return;
-		if (!Equals(oldState.FacingDirection, newState.FacingDirection))
+
+		if (!oldMotionState.IsMoving && newMotionState.IsMoving)
+		{
+			MatrixMoveEvents.OnStartMovementClient.Invoke();
+			GetTargetMoveNode();
+		}
+	//	Debug.Log($"Speed from server {newMotionState.Speed} client speed {sharedMotionState.Speed}");
+		sharedMotionState.Speed = newMotionState.Speed;
+
+		if (oldMotionState.IsMoving && !newMotionState.IsMoving)
+		{
+			MatrixMoveEvents.OnStopMovementClient.Invoke();
+		}
+
+		if ((int)oldMotionState.Speed != (int)newMotionState.Speed)
+		{
+			MatrixMoveEvents.OnSpeedChange.Invoke(oldMotionState.Speed, newMotionState.Speed);
+		}
+
+		serverMotionState = newMotionState;
+	}
+
+	public void UpdateClientFacingState(MatrixFacingState oldFacingState, MatrixFacingState newFacingState)
+	{
+		if (isServer) return;
+		if (!Equals(oldFacingState.FacingDirection, newFacingState.FacingDirection))
 		{
 			if (!receivedInitialState && !pendingInitialRotation)
 			{
 				pendingInitialRotation = true;
 			}
-			inProgressRotation = oldState.FacingDirection.OffsetTo(newState.FacingDirection);
-			Logger.LogTraceFormat("{0} starting rotation progress to {1}", Category.Matrix, this, newState.FacingDirection);
+			inProgressRotation = oldFacingState.FacingDirection.OffsetTo(newFacingState.FacingDirection);
+			Logger.LogTraceFormat("{0} starting rotation progress to {1}", Category.Matrix, this, newFacingState.FacingDirection);
 			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Client, RotationEvent.Start));
 		}
 
-		//Todo need to mark each rotation state with an uuid from point of origin so we can
-		//filter out predictive rotations that have succeeded here instead of checking the sharedstate
-		//this will allow rotation prediction to work passed the first rotation in laggy situations -doobly
-		if (SharedState.FacingDirection != newState.FacingDirection)
+		if (sharedFacingState.FacingDirection != newFacingState.FacingDirection)
 		{
-			SharedState.RotationTime = newState.RotationTime;
-			SharedState.FacingDirection = newState.FacingDirection;
-			SharedState.FlyingDirection = newState.FlyingDirection;
+			sharedFacingState.RotationTime = newFacingState.RotationTime;
+			sharedFacingState.FacingDirection = newFacingState.FacingDirection;
+			sharedFacingState.FlyingDirection = newFacingState.FlyingDirection;
 			StartRotateClient();
-		}
-
-		if (!oldState.IsMoving && newState.IsMoving)
-		{
-			MatrixMoveEvents.OnStartMovementClient.Invoke();
-			GetTargetMoveNode();
-		}
-		Debug.Log($"Speed from server {newState.Speed} client speed {SharedState.Speed}");
-		SharedState.Speed = newState.Speed;
-
-		if (oldState.IsMoving && !newState.IsMoving)
-		{
-			MatrixMoveEvents.OnStopMovementClient.Invoke();
-		}
-
-		if ((int)oldState.Speed != (int)newState.Speed)
-		{
-			MatrixMoveEvents.OnSpeedChange.Invoke(oldState.Speed, newState.Speed);
 		}
 
 		if (!receivedInitialState && !pendingInitialRotation)
@@ -145,7 +155,7 @@ public partial class MatrixMove
 			receivedInitialState = true;
 		}
 
-		ServerState = newState;
+		serverFacingState = newFacingState;
 	}
 
 	private void StartRotateClient()
@@ -153,7 +163,7 @@ public partial class MatrixMove
 		rotateLerp = 0f;
 		fromRotation = transform.rotation;
 		MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this,
-			SharedState.FacingDirection.OffsetTo(SharedState.FacingDirection), NetworkSide.Client, RotationEvent.Start));
+			sharedFacingState.FacingDirection.OffsetTo(sharedFacingState.FacingDirection), NetworkSide.Client, RotationEvent.Start));
 		IsRotating = true;
 	}
 
@@ -164,7 +174,8 @@ public partial class MatrixMove
 			if (newState)
 			{
 				moveLerp = 0f;
-				moveNodes.GenerateMoveNodes(transform.position, ServerState.FlyingDirection.VectorInt);
+				moveNodes.GenerateMoveNodes(transform.position, serverFacingState.FlyingDirection.VectorInt);
+				GetTargetMoveNode();
 			}
 		}
 

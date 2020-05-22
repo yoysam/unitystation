@@ -61,7 +61,7 @@ public class ShipThruster : MonoBehaviour
 		if (EngineStatus())
 		{
 			emissionFX.enabled = true;
-			SpeedChange(0, shipMatrixMove.ServerState.Speed); //Set particle speed on engine updates, used for setting speed at beginning of flight.
+			SpeedChange(0, shipMatrixMove.serverMotionState.Speed); //Set particle speed on engine updates, used for setting speed at beginning of flight.
 		}
 		else
 		{
@@ -88,7 +88,7 @@ public class ShipThruster : MonoBehaviour
 	{
 		if (shipMatrixMove != null)
 		{
-			return shipMatrixMove.ServerState.IsMoving;
+			return shipMatrixMove.serverMotionState.IsMoving;
 		}
 
 		return false;

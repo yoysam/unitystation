@@ -23,12 +23,12 @@ public struct MatrixInfo
 	private Vector3 cachedPosition;
 
 	public Color Color => Matrix ? Matrix.Color : Color.red;
-	public float Speed => MatrixMove ? MatrixMove.ServerState.Speed : 0f;
+	public float Speed => MatrixMove ? MatrixMove.serverMotionState.Speed : 0f;
 
 	//todo: placeholder, should depend on solid tiles count instead (and use caching)
 	public float Mass => Bounds.size.sqrMagnitude/1000f;
 	public bool IsMovable => MatrixMove != null;
-	public Vector2Int MovementVector => ( IsMovable && MatrixMove.IsMovingServer ) ? MatrixMove.ServerState.FlyingDirection.VectorInt : Vector2Int.zero;
+	public Vector2Int MovementVector => ( IsMovable && MatrixMove.IsMovingServer ) ? MatrixMove.serverFacingState.FlyingDirection.VectorInt : Vector2Int.zero;
 
 	/// <summary>
 	/// Transform containing all the physical objects on the map
@@ -47,23 +47,23 @@ public struct MatrixInfo
 
 	public Vector3Int Offset => GetOffset();
 
-	public Vector3Int GetOffset(MatrixState state = default(MatrixState))
+	public Vector3Int GetOffset(MatrixMotionState motionState = default(MatrixMotionState))
 	{
 		if (!MatrixMove)
 		{
 			return InitialOffset;
 		}
 
-		if (state.Equals(default(MatrixState)))
+		if (motionState.Equals(default(MatrixMotionState)))
 		{
-			state = MatrixMove.ServerState;
+			motionState = MatrixMove.serverMotionState;
 		}
 
-		if (cachedPosition != state.Position)
+		if (cachedPosition != motionState.Position)
 		{
 			//if we moved, update cached offset
-			cachedPosition = state.Position;
-			CachedOffset = initialOffset + (state.Position.RoundToInt() - MatrixMove.InitialPosition);
+			cachedPosition = motionState.Position;
+			CachedOffset = initialOffset + (motionState.Position.RoundToInt() - MatrixMove.InitialPosition);
 		}
 
 		return CachedOffset;
@@ -94,7 +94,7 @@ public struct MatrixInfo
 	{
 		return Equals(Invalid)
 			? "[Invalid matrix]"
-			: $"[({Id}){GameObject.name},offset={Offset},pivot={MatrixMove?.Pivot},state={MatrixMove?.ServerState},netId={NetID}]";
+			: $"[({Id}){GameObject.name},offset={Offset},pivot={MatrixMove?.Pivot},state={MatrixMove?.serverFacingState},netId={NetID}]";
 	}
 
 	public bool Equals(MatrixInfo other)

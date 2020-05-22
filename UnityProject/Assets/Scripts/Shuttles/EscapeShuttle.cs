@@ -86,7 +86,7 @@ public class EscapeShuttle : NetworkBehaviour
 	// Checks if shuttle has docked at station
 	private bool HasShuttleDockedToStation = false;
 
-	public float DistanceToDestination => Vector2.Distance( mm.ServerState.Position, currentDestination.Position );
+	public float DistanceToDestination => Vector2.Distance( mm.serverMotionState.Position, currentDestination.Position );
 
 	/// <summary>
 	/// Sets a position for the escape shuttle to move to before moving to station, which will stop it from colliding with CentComm.
@@ -227,7 +227,7 @@ public class EscapeShuttle : NetworkBehaviour
 		}
 
 		//arrived to destination
-		if ( mm.ServerState.IsMoving )
+		if ( mm.serverMotionState.IsMoving )
 		{
 
 			if (DistanceToDestination < 200)
@@ -267,7 +267,7 @@ public class EscapeShuttle : NetworkBehaviour
 		{
 			if (Status != ShuttleStatus.DockedCentcom && Status != ShuttleStatus.DockedStation)
 			{
-				if ((!mm.ServerState.IsMoving || mm.ServerState.Speed < 1f) && startedMovingToStation)
+				if ((!mm.serverMotionState.IsMoving || mm.serverMotionState.Speed < 1f) && startedMovingToStation)
 				{
 					Logger.LogTrace("Escape shuttle is blocked.", Category.Matrix);
 					isBlocked = true;
@@ -279,7 +279,7 @@ public class EscapeShuttle : NetworkBehaviour
 		{
 			//currently blocked, check if we are unblocked
 			if (Status == ShuttleStatus.DockedCentcom || Status == ShuttleStatus.DockedStation ||
-			    (mm.ServerState.IsMoving && mm.ServerState.Speed >= 1f))
+			    (mm.serverMotionState.IsMoving && mm.serverMotionState.Speed >= 1f))
 			{
 				Logger.LogTrace("Escape shuttle is unblocked.", Category.Matrix);
 				isBlocked = false;
@@ -318,7 +318,7 @@ public class EscapeShuttle : NetworkBehaviour
 		if ( !isReverse )
 		{
 			isReverse = true;
-			mm.ChangeFacingDirection(mm.ServerState.FacingDirection.Rotate(2));
+			mm.ChangeFacingDirection(mm.serverFacingState.FacingDirection.Rotate(2));
 			/*
 			if (Status == ShuttleStatus.DockedStation)
 			{
@@ -334,7 +334,7 @@ public class EscapeShuttle : NetworkBehaviour
 	{
 		if ( parkingMode )
 		{
-			mm.ChangeFlyingDirection(mm.ServerState.FacingDirection);
+			mm.ChangeFlyingDirection(mm.serverFacingState.FacingDirection);
 			isReverse = false;
 		}
 
@@ -482,7 +482,7 @@ public class EscapeShuttle : NetworkBehaviour
 		yield return WaitFor.Seconds(7f);
 
 		SoundManager.PlayAtPosition("HyperSpaceProgress", transform.position, gameObject);
-	
+
 		Status = ShuttleStatus.OnRouteCentcom;
 
 		mm.SetSpeed(100f);
@@ -514,7 +514,7 @@ public class EscapeShuttle : NetworkBehaviour
 	public void MoveToStation()
 	{
 		startedMovingToStation = true;
-		
+
 		mm.SetSpeed( 200 );
 		MoveTo(StationDest);
 	}

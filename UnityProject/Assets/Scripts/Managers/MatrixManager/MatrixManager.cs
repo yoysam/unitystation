@@ -399,7 +399,7 @@ public partial class MatrixManager : MonoBehaviour
 			if (originDoor && !originDoor.GetComponent<RegisterDoor>().IsPassableTo(localTarget, isServer))
 				return originDoor;
 		}
-		
+
 		// No closed door on local tile, check target tile
 		Vector3Int localOrigin = Instance.WorldToLocalInt(worldOrigin, AtPoint(worldOrigin, isServer).Matrix);
 		var targetDoorList = GetAt<InteractableDoor>(targetPos, isServer);
@@ -795,9 +795,9 @@ public partial class MatrixManager : MonoBehaviour
 	}
 
 	/// Convert local matrix coordinates to world position. Keeps offsets in mind (+ rotation and pivot if MatrixMove is present)
-	public static Vector3Int LocalToWorldInt(Vector3 localPos, MatrixInfo matrix, MatrixState state = default(MatrixState))
+	public static Vector3Int LocalToWorldInt(Vector3 localPos, MatrixInfo matrix, MatrixFacingState facingState = default(MatrixFacingState))
 	{
-		return Vector3Int.RoundToInt(LocalToWorld(localPos, matrix, state));
+		return Vector3Int.RoundToInt(LocalToWorld(localPos, matrix, facingState));
 	}
 
 	/// Convert local matrix coordinates to world position. Keeps offsets in mind (+ rotation and pivot if MatrixMove is present)
@@ -807,7 +807,7 @@ public partial class MatrixManager : MonoBehaviour
 	}
 
 	/// Convert local matrix coordinates to world position. Keeps offsets in mind (+ rotation and pivot if MatrixMove is present)
-	public static Vector3 LocalToWorld(Vector3 localPos, MatrixInfo matrix, MatrixState state = default(MatrixState))
+	public static Vector3 LocalToWorld(Vector3 localPos, MatrixInfo matrix, MatrixFacingState facingState = default(MatrixFacingState))
 	{
 		//Invalid matrix info provided
 		if (matrix.Equals(MatrixInfo.Invalid) || localPos == TransformState.HiddenPos)
@@ -822,15 +822,15 @@ public partial class MatrixManager : MonoBehaviour
 			return localPos + matrix.Offset;
 		}
 
-		if (state.Equals(default(MatrixState)))
+		if (facingState.Equals(default(MatrixFacingState)))
 		{
-			state = matrix.MatrixMove.ServerState;
+			facingState = matrix.MatrixMove.serverFacingState;
 		}
 
 
 		Vector3 unpivotedPos = localPos - matrix.MatrixMove.Pivot; //localPos - localPivot
-		Vector3 rotatedPos =  state.FacingOffsetFromInitial(matrix.MatrixMove).Quaternion * unpivotedPos; //unpivotedPos rotated by N degrees
-		Vector3 rotatedPivoted = rotatedPos + matrix.MatrixMove.Pivot + matrix.GetOffset( state ); //adding back localPivot and applying localToWorldOffset
+		Vector3 rotatedPos =  facingState.FacingOffsetFromInitial(matrix.MatrixMove).Quaternion * unpivotedPos; //unpivotedPos rotated by N degrees
+		Vector3 rotatedPivoted = rotatedPos + matrix.MatrixMove.Pivot + matrix.GetOffset( matrix.MatrixMove.serverMotionState); //adding back localPivot and applying localToWorldOffset
 		return rotatedPivoted;
 	}
 

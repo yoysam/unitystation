@@ -313,7 +313,7 @@ namespace IngameDebugConsole
 					}
 
 					usedMatrices.Add( movableMatrix );
-					lastUsedMatrix = new Tuple<MatrixInfo, Vector3>(movableMatrix, movableMatrix.MatrixMove.ServerState.Position);
+					lastUsedMatrix = new Tuple<MatrixInfo, Vector3>(movableMatrix, movableMatrix.MatrixMove.serverMotionState.Position);
 					var mm = movableMatrix.MatrixMove;
 					mm.SetPosition( appearPos );
 					mm.RequiresFuel = false;
