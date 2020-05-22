@@ -56,12 +56,12 @@ public partial class MatrixMove
 			}
 		}
 
-		Debug.Log($"Server history pos {historyNode.nodePos} time: {historyNode.networkTime} our pos {transform.position} time: {NetworkTime.time} ");
+		// Debug.Log($"Server history pos {historyNode.nodePos} time: {historyNode.networkTime} our pos {transform.position} time: {NetworkTime.time} ");
 
 		var diff = NetworkTime.time - historyNode.networkTime;
 		var diffWithRttAdjust = diff - NetworkTime.rtt;
-		Debug.Log($"Diff {diff} diff with rtt adjust {diffWithRttAdjust}");
-		Debug.Log($"Clients speed state {sharedMotionState.Speed}");
+		// Debug.Log($"Diff {diff} diff with rtt adjust {diffWithRttAdjust}");
+		// Debug.Log($"Clients speed state {sharedMotionState.Speed}");
 
 		if (sharedMotionState.Speed == 0)
 		{
@@ -92,16 +92,6 @@ public partial class MatrixMove
 			}
 		}
 		sharedMotionState.Speed = newMotionState.Speed;
-
-		if (sharedMotionState.Speed == 0)
-		{
-			fromPosition = transform.position;
-			toPosition = newMotionState.Position;
-			speedAdjust = Mathf.Round(Vector2.Distance(fromPosition, toPosition));
-			moveLerp = 0f;
-			performingMove = true;
-			moveNodes.GenerateMoveNodes(toPosition, sharedFacingState.FlyingDirection.VectorInt);
-		}
 
 		if (oldMotionState.IsMoving && !newMotionState.IsMoving)
 		{

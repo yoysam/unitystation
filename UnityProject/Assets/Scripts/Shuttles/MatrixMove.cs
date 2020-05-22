@@ -23,8 +23,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	/// </summary>
 	public UIType uiType = UIType.Nanotrasen;
 
-	[Tooltip("Initial facing of the ship. Very important to set this correctly!")]
-	[SerializeField]
+	[Tooltip("Initial facing of the ship. Very important to set this correctly!")] [SerializeField]
 	private OrientationEnum initialFacing;
 
 	[Tooltip("Does it require fuel in order to fly?")]
@@ -35,23 +34,23 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	/// </summary>
 	public Orientation InitialFacing => Orientation.FromEnum(initialFacing);
 
-	[Tooltip("Max flying speed of this matrix.")]
-	[FormerlySerializedAs("maxSpeed")]
+	[Tooltip("Max flying speed of this matrix.")] [FormerlySerializedAs("maxSpeed")]
 	public float MaxSpeed = 20f;
 
-	[SyncVar][Tooltip("Whether safety is currently on, preventing collisions when sensors detect them.")]
+	[SyncVar] [Tooltip("Whether safety is currently on, preventing collisions when sensors detect them.")]
 	public bool SafetyProtocolsOn = true;
 
 
 	[SyncVar(hook = nameof(SyncInitialPosition))]
 	private Vector3 initialPosition;
+
 	/// <summary>
 	/// Initial position for offset calculation, set on start and never changed afterwards
 	/// </summary>
 	public Vector3Int InitialPosition => initialPosition.RoundToInt();
 
-	[SyncVar(hook = nameof(SyncPivot))]
-	private Vector3 pivot;
+	[SyncVar(hook = nameof(SyncPivot))] private Vector3 pivot;
+
 	/// <summary>
 	/// local pivot point, set on start and never changed afterwards
 	/// </summary>
@@ -71,8 +70,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	/// <summary>
 	/// If it is currently fuelled
 	/// </summary>
-	[NonSerialized]
-	public bool IsFueled;
+	[NonSerialized] public bool IsFueled;
 
 	private bool IsAutopilotEngaged => Target != TransformState.HiddenPos;
 
@@ -91,6 +89,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	private Vector3Int[] SensorPositions;
 	private GameObject[] RotationSensors;
 	private GameObject rotationSensorContainerObject;
+
 	/// <summary>
 	/// Tracks the rotation we are currently performing.
 	/// Null when a rotation is not in progress.
@@ -100,8 +99,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	private RotationOffset? inProgressRotation;
 
 	private readonly int rotTime = 90;
-	[HideInInspector]
-	private GUI_CoordReadout coordReadoutScript;
+	[HideInInspector] private GUI_CoordReadout coordReadoutScript;
 
 	private GUI_ShuttleControl shuttleControlGUI;
 	private int moveCur = -1;
@@ -136,6 +134,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	{
 		shuttleControlGUI = shuttleGui;
 	}
+
 	public void RegisterCoordReadoutScript(GUI_CoordReadout coordReadout)
 	{
 		coordReadoutScript = coordReadout;
@@ -180,6 +179,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 			return true;
 		}
+
 		return false;
 	}
 
@@ -187,54 +187,40 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	{
 		if (EnginesOperational && sharedMotionState.Speed > 0f)
 		{
-			performingMove = true;
-		//	if(!isServer) Debug.Log($"ml {moveLerp} from {fromPosition} to {toPosition}");
-			moveLerp += Time.deltaTime * (sharedMotionState.Speed + speedAdjust);
-			transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
-			matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FlyingDirection, rcsBurn);
-			if (moveLerp >= 1f)
-			{
-				performingMove = false;
-			//	Debug.Log("End pos: " + toPosition + " time:  " + NetworkTime.time);
-				CreateHistoryNode();
-				if (isServer)
-				{
-					UpdateServerStatePosition(toPosition);
-					GetTargetMoveNode();
-				}
-				else
-				{
-					GetTargetMoveNode();
-				}
-
-				if (rcsBurn) DoEndRcsBurnChecks();
-			}
+			PerformMove(sharedMotionState.Speed + speedAdjust);
+			return;
 		}
-		else
-		{
-			if (rcsBurn || performingMove)
-			{
-				performingMove = true;
-				moveLerp += Time.deltaTime * (1f + speedAdjust);
-				transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
-				matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FlyingDirection, rcsBurn);
-				if (moveLerp >= 1f)
-				{
-					performingMove = false;
-					CreateHistoryNode();
-					if (isServer)
-					{
-						UpdateServerStatePosition(toPosition);
-						GetTargetMoveNode();
-					}
-					else
-					{
-						GetTargetMoveNode();
-					}
 
-					DoEndRcsBurnChecks();
-				}
+		if (rcsBurn || performingMove)
+		{
+			PerformMove(1f + speedAdjust);
+			return;
+		}
+	}
+
+	private void PerformMove(float speed)
+	{
+		performingMove = true;
+
+		moveLerp += Time.deltaTime * speed;
+		transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
+		matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FlyingDirection, rcsBurn);
+		if (moveLerp >= 1f)
+		{
+			performingMove = false;
+			//	Debug.Log("End pos: " + toPosition + " time:  " + NetworkTime.time);
+			CreateHistoryNode();
+			if (isServer)
+			{
+				UpdateServerStatePosition(toPosition);
+				GetTargetMoveNode();
 			}
+			else
+			{
+				GetTargetMoveNode();
+			}
+
+			if (rcsBurn) DoEndRcsBurnChecks();
 		}
 	}
 
@@ -276,6 +262,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		{
 			netId = interactee.GetComponent<NetworkIdentity>().netId;
 		}
+
 		if (isServer)
 		{
 			serverMotionState = new MatrixMotionState
@@ -294,7 +281,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	{
 		if (isClient)
 		{
-			if(coordReadoutScript != null) coordReadoutScript.SetCoords(transform.position);
+			if (coordReadoutScript != null) coordReadoutScript.SetCoords(transform.position);
 			if (shuttleControlGUI != null && rcsModeActive != shuttleControlGUI.RcsMode)
 			{
 				shuttleControlGUI.ClientToggleRcs(rcsModeActive);
@@ -315,9 +302,9 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 			Vector3Int sensorPos = MatrixManager.LocalToWorldInt(sensor, matrixInfo, serverFacingState);
 
 			// Exclude the moving matrix, we shouldn't be able to collide with ourselves
-			int[] excludeList = { matrixInfo.Id };
+			int[] excludeList = {matrixInfo.Id};
 			if (!MatrixManager.IsPassableAt(sensorPos, sensorPos + dir.RoundToInt(), isServer: true,
-											collisionType: matrixColliderType, excludeList: excludeList))
+				collisionType: matrixColliderType, excludeList: excludeList))
 			{
 				return false;
 			}
@@ -329,24 +316,31 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	private bool CanRotateTo(Orientation flyingDirection)
 	{
-		if (rotationSensorContainerObject == null) { return true; }
+		if (rotationSensorContainerObject == null)
+		{
+			return true;
+		}
 
 		// Feign a rotation using GameObjects for reference
 		Transform rotationSensorContainerTransform = rotationSensorContainerObject.transform;
 		rotationSensorContainerTransform.rotation = new Quaternion();
-		rotationSensorContainerTransform.Rotate(0f, 0f, 90f * serverFacingState.FlyingDirection.RotationsTo(flyingDirection));
+		rotationSensorContainerTransform.Rotate(0f, 0f,
+			90f * serverFacingState.FlyingDirection.RotationsTo(flyingDirection));
 
 		for (var i = 0; i < RotationSensors.Length; i++)
 		{
 			var sensor = RotationSensors[i];
 			// Need to pass an aggriate local vector in reference to the Matrix GO to get the correct WorldPos
-			Vector3 localSensorAggrigateVector = (rotationSensorContainerTransform.localRotation * sensor.transform.localPosition) + rotationSensorContainerTransform.localPosition;
-			Vector3Int sensorPos = MatrixManager.LocalToWorldInt(localSensorAggrigateVector, matrixInfo, serverFacingState);
+			Vector3 localSensorAggrigateVector =
+				(rotationSensorContainerTransform.localRotation * sensor.transform.localPosition) +
+				rotationSensorContainerTransform.localPosition;
+			Vector3Int sensorPos =
+				MatrixManager.LocalToWorldInt(localSensorAggrigateVector, matrixInfo, serverFacingState);
 
 			// Exclude the rotating matrix, we shouldn't be able to collide with ourselves
-			int[] excludeList = { matrixInfo.Id };
+			int[] excludeList = {matrixInfo.Id};
 			if (!MatrixManager.IsPassableAt(sensorPos, sensorPos, isServer: true,
-											collisionType: matrixColliderType, includingPlayers: true, excludeList: excludeList))
+				collisionType: matrixColliderType, includingPlayers: true, excludeList: excludeList))
 			{
 				return false;
 			}
@@ -366,14 +360,15 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	private void OnDrawGizmos()
 	{
-		if ( !Application.isPlaying )
-		{ //Showing matrix pivot if game is stopped
-			Gizmos.color = color1.WithAlpha( 0.6f );
-			Gizmos.DrawCube(transform.position, Vector3.one );
+		if (!Application.isPlaying)
+		{
+			//Showing matrix pivot if game is stopped
+			Gizmos.color = color1.WithAlpha(0.6f);
+			Gizmos.DrawCube(transform.position, Vector3.one);
 			Gizmos.color = color1;
-			Gizmos.DrawWireCube(transform.position, Vector3.one );
+			Gizmos.DrawWireCube(transform.position, Vector3.one);
 
-			DebugGizmoUtils.DrawArrow(transform.position, serverFacingState.FlyingDirection.Vector*2);
+			DebugGizmoUtils.DrawArrow(transform.position, serverFacingState.FlyingDirection.Vector * 2);
 			return;
 		}
 
@@ -383,7 +378,8 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		Gizmos.DrawWireCube(serverPos, size1);
 		if (serverMotionState.IsMoving)
 		{
-			DebugGizmoUtils.DrawArrow(serverPos + Vector3.right / 3, serverFacingState.FlyingDirection.Vector * serverMotionState.Speed);
+			DebugGizmoUtils.DrawArrow(serverPos + Vector3.right / 3,
+				serverFacingState.FlyingDirection.Vector * serverMotionState.Speed);
 			DebugGizmoUtils.DrawText(serverMotionState.Speed.ToString(), serverPos + Vector3.right, 15);
 		}
 	}
