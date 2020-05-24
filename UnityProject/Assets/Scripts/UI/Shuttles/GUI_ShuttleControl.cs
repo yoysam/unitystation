@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using DatabaseAPI;
 using Mirror;
 using NPC;
 using UnityEngine;
@@ -412,6 +413,11 @@ public class GUI_ShuttleControl : NetTab
 		MatrixMove.TryRotate(false);
 	}
 
+	public void SetSpeed(float speed)
+	{
+		SetSpeed(speed, null);
+	}
+
 	/// <summary>
 	/// Sets shuttle speed.
 	/// </summary>
@@ -425,6 +431,6 @@ public class GUI_ShuttleControl : NetTab
 		}
 		float speed = speedMultiplier * (MatrixMove.MaxSpeed - 1);
 
-		MatrixMove.SetSpeed(speed, player.GameObject);
+		MatrixMove.SetSpeed(speed, player?.GameObject);
 	}
 }

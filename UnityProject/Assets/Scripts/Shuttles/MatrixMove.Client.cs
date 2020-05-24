@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.IO;
+using System.Linq;
 using Mirror;
 using UnityEngine;
 
@@ -14,11 +15,13 @@ public partial class MatrixMove
 	private bool receivedInitialState;
 	private bool pendingInitialRotation;
 	private float lastSpeed = 1f;
+
 	/// <summary>
 	/// Has this matrix move finished receiving its initial state from the server and rotating into its correct
 	/// position?
 	/// </summary>
 	public bool Initialized => clientStarted && receivedInitialState;
+
 	private HistoryNode[] serverHistory = new HistoryNode[8];
 
 	public override void OnStartClient()
@@ -42,6 +45,8 @@ public partial class MatrixMove
 		this.pivot = pivot.RoundToInt();
 	}
 
+	private string log = "";
+
 	[ClientRpc]
 	private void RpcReceiveServerHistoryNode(HistoryNode historyNode)
 	{
@@ -56,7 +61,19 @@ public partial class MatrixMove
 			}
 		}
 
-		// Debug.Log($"Server history pos {historyNode.nodePos} time: {historyNode.networkTime} our pos {transform.position} time: {NetworkTime.time} ");
+		if (serverHistory[1].networkTime != -1 && moveNodes.historyNodes[1].nodePos != Vector2.zero
+		                                       && moveNodes.historyNodes[0].nodePos != Vector2.zero)
+		{
+			var travelTimePerTileServer = 1f / (serverHistory[0].networkTime - serverHistory[1].networkTime);
+			var travelTimePerTileClient =
+				1f / (moveNodes.historyNodes[0].networkTime - moveNodes.historyNodes[1].networkTime);
+			SetAdjustmentSpeed(historyNode.nodePos - moveNodes.historyNodes[0].nodePos, travelTimePerTileClient);
+			log +=
+				$"[{serverMotionState.Speed}] Server {travelTimePerTileServer} tiles / sec || [{sharedMotionState.Speed}] Client {travelTimePerTileClient} tiles / sec \r\n";
+		}
+
+		log +=
+			$"Server history pos {historyNode.nodePos} time: {historyNode.networkTime} our pos {moveNodes.historyNodes[0].nodePos} time: {moveNodes.historyNodes[0].networkTime} \r\n";
 
 		var diff = NetworkTime.time - historyNode.networkTime;
 		var diffWithRttAdjust = diff - NetworkTime.rtt;
@@ -67,11 +84,49 @@ public partial class MatrixMove
 		{
 			fromPosition = transform.position;
 			toPosition = historyNode.nodePos;
-			speedAdjust = Mathf.Round(Vector2.Distance(fromPosition, toPosition));
+			speedAdjust = Mathf.Round(Vector2.Distance(fromPosition, toPosition)) * 2f;
 			moveLerp = 0f;
 			performingMove = true;
 			moveNodes.GenerateMoveNodes(toPosition, sharedFacingState.FlyingDirection.VectorInt);
+			File.WriteAllText(Path.Combine(Application.streamingAssetsPath, "motionlog.txt"), log);
 		}
+	}
+
+	void SetAdjustmentSpeed(Vector2 diff, double clientTilesPerSec)
+	{
+		if (diff == Vector2.zero || speedAdjust != 0)
+		{
+			return;
+		}
+
+		diff *= 0.5f;
+		switch (sharedFacingState.FlyingDirection.AsEnum())
+		{
+			case OrientationEnum.Left:
+				var x = diff.x * -1;
+				speedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + x) / clientTilesPerSec)) -
+				                       sharedMotionState.Speed);
+
+				break;
+			case OrientationEnum.Right:
+				speedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + diff.x) / clientTilesPerSec)) -
+				                       sharedMotionState.Speed);
+				break;
+			case OrientationEnum.Up:
+				speedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + diff.y) / clientTilesPerSec)) -
+				                       sharedMotionState.Speed);
+				break;
+			case OrientationEnum.Down:
+				var y = diff.y * -1;
+				speedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + y) / clientTilesPerSec)) -
+				                       sharedMotionState.Speed);
+				break;
+		}
+
+		speedAdjust = Mathf.Clamp(speedAdjust, (sharedMotionState.Speed * -1) + 2f, 200f);
+
+	//	Debug.Log("Set speed adjust: " + speedAdjust);
+		log += $"Set speed adjust: {speedAdjust} \r\n";
 	}
 
 	public void UpdateClientMotionState(MatrixMotionState oldMotionState, MatrixMotionState newMotionState)
@@ -88,9 +143,10 @@ public partial class MatrixMove
 		{
 			if (NetworkIdentity.spawned.ContainsKey(newMotionState.Interactee))
 			{
-				Debug.Log("Set by: " + NetworkIdentity.spawned[newMotionState.Interactee].name);
+				//Debug.Log("Set by: " + NetworkIdentity.spawned[newMotionState.Interactee].name);
 			}
 		}
+
 		sharedMotionState.Speed = newMotionState.Speed;
 
 		if (oldMotionState.IsMoving && !newMotionState.IsMoving)
@@ -98,7 +154,7 @@ public partial class MatrixMove
 			MatrixMoveEvents.OnStopMovementClient.Invoke();
 		}
 
-		if ((int)oldMotionState.Speed != (int)newMotionState.Speed)
+		if ((int) oldMotionState.Speed != (int) newMotionState.Speed)
 		{
 			MatrixMoveEvents.OnSpeedChange.Invoke(oldMotionState.Speed, newMotionState.Speed);
 		}
@@ -115,9 +171,12 @@ public partial class MatrixMove
 			{
 				pendingInitialRotation = true;
 			}
+
 			inProgressRotation = oldFacingState.FacingDirection.OffsetTo(newFacingState.FacingDirection);
-			Logger.LogTraceFormat("{0} starting rotation progress to {1}", Category.Matrix, this, newFacingState.FacingDirection);
-			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Client, RotationEvent.Start));
+			Logger.LogTraceFormat("{0} starting rotation progress to {1}", Category.Matrix, this,
+				newFacingState.FacingDirection);
+			MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this, inProgressRotation.Value, NetworkSide.Client,
+				RotationEvent.Start));
 		}
 
 		if (sharedFacingState.FacingDirection != newFacingState.FacingDirection)
@@ -141,7 +200,8 @@ public partial class MatrixMove
 		rotateLerp = 0f;
 		fromRotation = transform.rotation;
 		MatrixMoveEvents.OnRotate.Invoke(new MatrixRotationInfo(this,
-			sharedFacingState.FacingDirection.OffsetTo(sharedFacingState.FacingDirection), NetworkSide.Client, RotationEvent.Start));
+			sharedFacingState.FacingDirection.OffsetTo(sharedFacingState.FacingDirection), NetworkSide.Client,
+			RotationEvent.Start));
 		IsRotating = true;
 	}
 

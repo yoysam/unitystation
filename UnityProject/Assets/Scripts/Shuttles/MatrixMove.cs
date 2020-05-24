@@ -220,6 +220,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 				GetTargetMoveNode();
 			}
 
+			speedAdjust = 0f;
 			if (rcsBurn) DoEndRcsBurnChecks();
 		}
 	}
@@ -235,7 +236,6 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	void GetTargetMoveNode(bool disregardChecks = false)
 	{
-		speedAdjust = 0f;
 		if (!CanMoveTo(sharedFacingState.FlyingDirection) && SafetyProtocolsOn && !disregardChecks) return;
 
 		moveLerp = 0f;

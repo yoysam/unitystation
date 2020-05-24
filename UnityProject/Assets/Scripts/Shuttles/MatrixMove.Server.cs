@@ -375,7 +375,8 @@ public partial class MatrixMove
 		{
 			IsMoving = serverMotionState.IsMoving,
 			Speed = serverMotionState.Speed,
-			Position = position
+			Position = position,
+			Interactee = serverMotionState.Interactee
 		};
 	}
 
