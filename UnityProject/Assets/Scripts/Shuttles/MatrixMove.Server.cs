@@ -248,6 +248,12 @@ public partial class MatrixMove
 		TryNotifyPlayers();
 	}
 
+	[Server]
+	public void ProcessStopRequest(ConnectedPlayer requestee, Vector2Int proposedStopTile)
+	{
+		Debug.Log($"Stop request received from: {requestee.Name} tile {proposedStopTile}");
+	}
+
 	/// Move for n tiles, regardless of direction, and stop
 	[Server]
 	public void MoveFor(int tiles)

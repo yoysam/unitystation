@@ -143,7 +143,11 @@ public partial class MatrixMove
 		{
 			if (NetworkIdentity.spawned.ContainsKey(newMotionState.Interactee))
 			{
-				//Debug.Log("Set by: " + NetworkIdentity.spawned[newMotionState.Interactee].name);
+				Debug.Log("Set by: " + NetworkIdentity.spawned[newMotionState.Interactee].name);
+			}
+			else
+			{
+				Debug.Log("NET ID NOT FOUND IN SPAWNED: " + newMotionState.Interactee);
 			}
 		}
 

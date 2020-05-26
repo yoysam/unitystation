@@ -255,6 +255,11 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	/// Set ship's speed using absolute value. it will be truncated if it's out of bounds
 	public void SetSpeed(float absoluteValue, GameObject interactee = null)
 	{
+		if (!isServer && absoluteValue <= 0f && sharedMotionState.Speed > 0)
+		{
+			MatrixMoveRequestStop.Send(GetComponent<NetworkIdentity>().netId, toPosition.To2Int());
+		}
+
 		var speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed);
 
 		uint netId = NetId.Invalid;
