@@ -141,18 +141,17 @@ public partial class MatrixMove
 
 		if (newMotionState.Interactee != NetId.Invalid)
 		{
-			if (NetworkIdentity.spawned.ContainsKey(newMotionState.Interactee))
+			if (!NetworkIdentity.spawned.ContainsKey(newMotionState.Interactee))
 			{
-				Debug.Log("Set by: " + NetworkIdentity.spawned[newMotionState.Interactee].name);
-			}
-			else
-			{
-				Debug.Log("NET ID NOT FOUND IN SPAWNED: " + newMotionState.Interactee);
+				sharedMotionState.Speed = newMotionState.Speed;
 			}
 		}
+		else
+		{
+			sharedMotionState.Speed = newMotionState.Speed;
+		}
 
-		sharedMotionState.Speed = newMotionState.Speed;
-
+		
 		if (oldMotionState.IsMoving && !newMotionState.IsMoving)
 		{
 			MatrixMoveEvents.OnStopMovementClient.Invoke();

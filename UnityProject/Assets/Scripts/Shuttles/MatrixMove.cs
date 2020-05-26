@@ -262,7 +262,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 		var speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed);
 
-		uint netId = NetId.Invalid;
+		uint netId = serverMotionState.Interactee;
 		if (interactee != null)
 		{
 			netId = interactee.GetComponent<NetworkIdentity>().netId;
