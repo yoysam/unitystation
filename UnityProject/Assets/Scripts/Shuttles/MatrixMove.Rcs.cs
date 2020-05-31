@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Mirror;
@@ -26,6 +27,8 @@ public partial class MatrixMove
 		public Vector2Int dir;
 		public double networkTime;
 	}
+
+	private DateTime lastPlayerBurn = DateTime.Now;
 
 	//For Rcs Movement
 	public void ReceivePlayerMoveAction(PlayerAction moveActions)
@@ -76,12 +79,21 @@ public partial class MatrixMove
 			var pendingMove = pendingRcsMoves.Dequeue();
 			if (isServer)
 			{
-				MoveViaRcs(pendingMove.dir);
-				RpcRcsMove(pendingMove.dir, pendingMove.networkTime);
+				if (!MoveViaRcs(pendingMove.dir))
+				{
+					rcsBurn = false;
+				}
+				else
+				{
+					RpcRcsMove(pendingMove.dir, pendingMove.networkTime);
+				}
 			}
 			else
 			{
-				MoveViaRcs(pendingMove.dir);
+				if (!MoveViaRcs(pendingMove.dir))
+				{
+					rcsBurn = false;
+				};
 			}
 		}
 		else
