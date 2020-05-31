@@ -24,7 +24,8 @@ public partial class MatrixMove
 	public bool Initialized => clientStarted && receivedInitialState;
 
 	private HistoryNode[] serverHistory = new HistoryNode[8];
-	private Dictionary<double, float> clientSpeedHistroy = new Dictionary<double, float>();
+	private Dictionary<double, float> clientSpeedHistory = new Dictionary<double, float>();
+	private Dictionary<double, Orientation> clientRotationHistory = new Dictionary<double, Orientation>();
 
 
 	public override void OnStartClient()
@@ -97,23 +98,68 @@ public partial class MatrixMove
 
 	bool TrySetClientSpeed(double networkTime, float speed)
 	{
-		if (clientSpeedHistroy.ContainsKey(networkTime))
+		if (clientSpeedHistory.ContainsKey(networkTime))
 		{
 			return false;
 		}
 
 		if (networkTime != 0.0)
 		{
-			clientSpeedHistroy.Add(networkTime, speed);
+			clientSpeedHistory.Add(networkTime, speed);
 		}
 
 		sharedMotionState.Speed = speed;
 		sharedMotionState.SpeedNetworkTime = networkTime;
 
-		if (clientSpeedHistroy.Count > 60)
+		if (clientSpeedHistory.Count > 60)
 		{
-			clientSpeedHistroy.Remove(clientSpeedHistroy.ElementAt(0).Key);
+			clientSpeedHistory.Remove(clientSpeedHistory.ElementAt(0).Key);
 		}
+
+		return true;
+	}
+
+	///Only change orientation if rotation is finished
+	public void TryRotate(bool clockwise)
+	{
+		if (!IsRotating)
+		{
+			sharedFacingState.RotationTime = 2f;
+			var networkTime = NetworkTime.time;
+			var newOrientation = sharedFacingState.FacingDirection.Rotate(clockwise ? 1 : -1);
+			if (CanRotateTo(newOrientation))
+			{
+				if (TrySetClientRotation(networkTime, newOrientation))
+				{
+					StartRotateClient();
+					MatrixMoveRotateRequest.Send(netId, PlayerManager.LocalPlayer, networkTime,
+						newOrientation.AsEnum());
+				}
+			}
+		}
+	}
+
+	bool TrySetClientRotation(double networkTime, Orientation orientation)
+	{
+		if (clientRotationHistory.ContainsKey(networkTime))
+		{
+			return false;
+		}
+
+		if (networkTime != 0.0)
+		{
+			clientRotationHistory.Add(networkTime, orientation);
+		}
+
+		sharedFacingState.FacingDirection = orientation;
+		sharedFacingState.FlyingDirection = orientation;
+		sharedFacingState.FacingDirectionNetworkTime = networkTime;
+
+		if (clientRotationHistory.Count > 60)
+		{
+			clientRotationHistory.Remove(clientRotationHistory.ElementAt(0).Key);
+		}
+
 		return true;
 	}
 
@@ -150,7 +196,7 @@ public partial class MatrixMove
 
 		speedAdjust = Mathf.Clamp(speedAdjust, (sharedMotionState.Speed * -1) + 2f, 200f);
 
-	//	Debug.Log("Set speed adjust: " + speedAdjust);
+		//	Debug.Log("Set speed adjust: " + speedAdjust);
 		log += $"Set speed adjust: {speedAdjust} \r\n";
 	}
 
@@ -196,11 +242,11 @@ public partial class MatrixMove
 				RotationEvent.Start));
 		}
 
-		if (sharedFacingState.FacingDirection != newFacingState.FacingDirection)
+		sharedFacingState.RotationTime = newFacingState.RotationTime;
+		sharedFacingState.FlyingDirection = newFacingState.FlyingDirection;
+
+		if (TrySetClientRotation(newFacingState.FacingDirectionNetworkTime, newFacingState.FlyingDirection))
 		{
-			sharedFacingState.RotationTime = newFacingState.RotationTime;
-			sharedFacingState.FacingDirection = newFacingState.FacingDirection;
-			sharedFacingState.FlyingDirection = newFacingState.FlyingDirection;
 			StartRotateClient();
 		}
 

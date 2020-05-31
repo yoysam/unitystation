@@ -20,6 +20,11 @@ public struct MatrixFacingState : IEquatable<MatrixFacingState>
 	public Orientation FlyingDirection;
 
 	/// <summary>
+	/// Last time facing direction was changed
+	/// </summary>
+	public double FacingDirectionNetworkTime;
+
+	/// <summary>
 	/// Gets the rotation offset this state represents from the matrix move's initial mapped
 	/// facing.
 	/// </summary>
@@ -31,7 +36,9 @@ public struct MatrixFacingState : IEquatable<MatrixFacingState>
 
 	public bool Equals(MatrixFacingState other)
 	{
-		return RotationTime.Equals(other.RotationTime) && FacingDirection.Equals(other.FacingDirection) && FlyingDirection.Equals(other.FlyingDirection);
+		return RotationTime.Equals(other.RotationTime) && FacingDirection.Equals(other.FacingDirection) &&
+		       FlyingDirection.Equals(other.FlyingDirection) &&
+		       FacingDirectionNetworkTime.Equals(other.FacingDirectionNetworkTime);
 	}
 
 	public override bool Equals(object obj)
@@ -46,6 +53,7 @@ public struct MatrixFacingState : IEquatable<MatrixFacingState>
 			var hashCode = RotationTime.GetHashCode();
 			hashCode = (hashCode * 397) ^ FacingDirection.GetHashCode();
 			hashCode = (hashCode * 397) ^ FlyingDirection.GetHashCode();
+			hashCode = (hashCode * 397) ^ FacingDirectionNetworkTime.GetHashCode();
 			return hashCode;
 		}
 	}

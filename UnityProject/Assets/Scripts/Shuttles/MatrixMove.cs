@@ -243,14 +243,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		toPosition = moveNodes.GetTargetNode(sharedFacingState.FlyingDirection.VectorInt);
 	}
 
-	///Only change orientation if rotation is finished
-	public void TryRotate(bool clockwise)
-	{
-		if (!IsRotating)
-		{
-			SteerTo(serverFacingState.FacingDirection.Rotate(clockwise ? 1 : -1));
-		}
-	}
+
 
 	/// Set ship's speed using absolute value. it will be truncated if it's out of bounds
 	public void SetSpeed(float absoluteValue, double networkTime = 0.0)

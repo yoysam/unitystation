@@ -208,17 +208,24 @@ public partial class MatrixMove
 	/// </summary>
 	/// <param name="desiredOrientation"></param>
 	[Server]
-	public bool SteerTo(Orientation desiredOrientation)
+	public bool SteerTo(Orientation desiredOrientation, double networkTime = 0.0)
 	{
 		if (CanRotateTo(desiredOrientation))
 		{
 			if (isServer)
 			{
+				double serverTime = NetworkTime.time;
+				if (networkTime != 0.0)
+				{
+					serverTime = networkTime;
+				}
+
 				serverFacingState = new MatrixFacingState
 				{
 					RotationTime = 2f,
 					FacingDirection = desiredOrientation,
 					FlyingDirection = desiredOrientation,
+					FacingDirectionNetworkTime = serverTime
 				};
 			}
 

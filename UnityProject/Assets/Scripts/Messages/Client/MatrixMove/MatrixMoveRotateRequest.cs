@@ -1,27 +1,27 @@
 ﻿using Mirror;
 using UnityEngine;
 
-public class MatrixMoveSpeedRequest : ClientMessage
+public class MatrixMoveRotateRequest : ClientMessage
 {
 	public uint MatrixMove;
 	public double NetworkTime;
-	public float Speed;
+	public OrientationEnum FacingDirection;
 	public GameObject Interactee;
 
 	public override void Process()
 	{
 		LoadNetworkObject(MatrixMove);
 		//TODO: Validation with the interactee. Try to find the shuttle gui and measure the distance
-		NetworkObject.GetComponent<MatrixMove>().SetSpeed(Speed, NetworkTime);
+		NetworkObject.GetComponent<MatrixMove>().SteerTo(Orientation.FromEnum(FacingDirection), NetworkTime);
 	}
 
-	public static MatrixMoveSpeedRequest Send(uint matrixMoveNetId, GameObject interactee, double networkTime, float speed)
+	public static MatrixMoveRotateRequest Send(uint matrixMoveNetId, GameObject interactee, double networkTime, OrientationEnum dir)
 	{
-		MatrixMoveSpeedRequest msg = new MatrixMoveSpeedRequest
+		MatrixMoveRotateRequest msg = new MatrixMoveRotateRequest
 		{
 			MatrixMove = matrixMoveNetId,
 			NetworkTime = networkTime,
-			Speed = speed,
+			FacingDirection = dir,
 			Interactee = interactee
 		};
 		msg.Send();
@@ -33,7 +33,7 @@ public class MatrixMoveSpeedRequest : ClientMessage
 		base.Deserialize(reader);
 		MatrixMove = reader.ReadUInt32();
 		NetworkTime = reader.ReadDouble();
-		Speed = (float)reader.ReadDouble();
+		FacingDirection = (OrientationEnum)reader.ReadInt32();
 		Interactee = reader.ReadGameObject();
 	}
 
@@ -42,7 +42,7 @@ public class MatrixMoveSpeedRequest : ClientMessage
 		base.Serialize(writer);
 		writer.WriteUInt32(MatrixMove);
 		writer.WriteDouble(NetworkTime);
-		writer.WriteDouble(Speed);
+		writer.WriteInt32((int)FacingDirection);
 		writer.WriteGameObject(Interactee);
 	}
 }
