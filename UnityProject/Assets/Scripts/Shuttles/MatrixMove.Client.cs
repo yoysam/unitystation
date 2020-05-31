@@ -54,6 +54,8 @@ public partial class MatrixMove
 	[ClientRpc]
 	private void RpcReceiveServerHistoryNode(HistoryNode historyNode)
 	{
+		return;
+		
 		if (isServer) return;
 
 		for (int i = serverHistory.Length - 2; i >= 0; i--)
@@ -202,7 +204,7 @@ public partial class MatrixMove
 	public void UpdateClientMotionState(MatrixMotionState oldMotionState, MatrixMotionState newMotionState)
 	{
 		if (isServer) return;
-		
+
 		if (TrySetClientSpeed(newMotionState.SpeedNetworkTime, newMotionState.Speed))
 		{
 			if (!oldMotionState.IsMoving && newMotionState.IsMoving)
@@ -210,13 +212,13 @@ public partial class MatrixMove
 				MatrixMoveEvents.OnStartMovementClient.Invoke();
 				GetTargetMoveNode();
 			}
-			
+
 			if (oldMotionState.IsMoving && !newMotionState.IsMoving)
 			{
 				MatrixMoveEvents.OnStopMovementClient.Invoke();
 			}
 		}
-		
+
 		if ((int) oldMotionState.Speed != (int) newMotionState.Speed)
 		{
 			MatrixMoveEvents.OnSpeedChange.Invoke(oldMotionState.Speed, newMotionState.Speed);

@@ -73,34 +73,34 @@ public partial class MatrixMove
 		}
 	}
 
-	private void DoEndRcsBurnChecks()
+	private bool ProcessPendingBurns()
 	{
+		if (!isServer)
+		{
+
+		}
+
 		if (pendingRcsMoves.Count > 0)
 		{
 			var pendingMove = pendingRcsMoves.Dequeue();
 			if (isServer)
 			{
-				if (!MoveViaRcs(pendingMove.networkTime, pendingMove.dir))
-				{
-					rcsBurn = false;
-				}
-				else
+				if (MoveViaRcs(pendingMove.networkTime, pendingMove.dir))
 				{
 					RpcRcsMove(pendingMove.dir, pendingMove.networkTime);
+					return true;
 				}
 			}
 			else
 			{
-				if (!MoveViaRcs(pendingMove.networkTime, pendingMove.dir))
+				if (MoveViaRcs(pendingMove.networkTime, pendingMove.dir))
 				{
-					rcsBurn = false;
-				};
+					return true;
+				}
 			}
 		}
-		else
-		{
-			rcsBurn = false;
-		}
+		rcsBurn = false;
+		return false;
 	}
 
 	[ClientRpc]
