@@ -394,7 +394,7 @@ public partial class CustomNetTransform : ManagedNetworkBehaviour, IPushable //s
 			if ( oldMatrix.IsMovable
 			     && oldMatrix.MatrixMove.IsMovingServer )
 			{
-				Push( oldMatrix.MatrixMove.serverFacingState.FlyingDirection.Vector.To2Int(), oldMatrix.Speed );
+				Push( oldMatrix.MatrixMove.serverFacingState.FacingDirection.Vector.To2Int(), oldMatrix.Speed );
 				Logger.LogTraceFormat( "{0} inertia pushed while attempting matrix switch", Category.Transform, gameObject );
 				return;
 			}

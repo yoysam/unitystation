@@ -99,8 +99,8 @@ public partial class MatrixMove
 		{
 			//matrix is moving we need to strafe instead
 			//(forward and reverse will be ignored)
-			if (sharedFacingState.FlyingDirection.VectorInt != dir &&
-			    sharedFacingState.FlyingDirection.VectorInt * -1 != dir)
+			if (sharedFacingState.FacingDirection.VectorInt != dir &&
+			    sharedFacingState.FacingDirection.VectorInt * -1 != dir)
 			{
 				moveNodes.AdjustFutureNodes(dir);
 				toPosition += dir;

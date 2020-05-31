@@ -91,7 +91,7 @@ public partial class MatrixMove
 			speedAdjust = Mathf.Round(Vector2.Distance(fromPosition, toPosition)) * 2f;
 			moveLerp = 0f;
 			performingMove = true;
-			moveNodes.GenerateMoveNodes(toPosition, sharedFacingState.FlyingDirection.VectorInt);
+			moveNodes.GenerateMoveNodes(toPosition, sharedFacingState.FacingDirection.VectorInt);
 			File.WriteAllText(Path.Combine(Application.streamingAssetsPath, "motionlog.txt"), log);
 		}
 	}
@@ -152,7 +152,6 @@ public partial class MatrixMove
 		}
 
 		sharedFacingState.FacingDirection = orientation;
-		sharedFacingState.FlyingDirection = orientation;
 		sharedFacingState.FacingDirectionNetworkTime = networkTime;
 
 		if (clientRotationHistory.Count > 60)
@@ -171,7 +170,7 @@ public partial class MatrixMove
 		}
 
 		diff *= 0.5f;
-		switch (sharedFacingState.FlyingDirection.AsEnum())
+		switch (sharedFacingState.FacingDirection.AsEnum())
 		{
 			case OrientationEnum.Left:
 				var x = diff.x * -1;
@@ -203,20 +202,21 @@ public partial class MatrixMove
 	public void UpdateClientMotionState(MatrixMotionState oldMotionState, MatrixMotionState newMotionState)
 	{
 		if (isServer) return;
-
-		if (!oldMotionState.IsMoving && newMotionState.IsMoving)
+		
+		if (TrySetClientSpeed(newMotionState.SpeedNetworkTime, newMotionState.Speed))
 		{
-			MatrixMoveEvents.OnStartMovementClient.Invoke();
-			GetTargetMoveNode();
+			if (!oldMotionState.IsMoving && newMotionState.IsMoving)
+			{
+				MatrixMoveEvents.OnStartMovementClient.Invoke();
+				GetTargetMoveNode();
+			}
+			
+			if (oldMotionState.IsMoving && !newMotionState.IsMoving)
+			{
+				MatrixMoveEvents.OnStopMovementClient.Invoke();
+			}
 		}
-
-		TrySetClientSpeed(newMotionState.SpeedNetworkTime, newMotionState.Speed);
-
-		if (oldMotionState.IsMoving && !newMotionState.IsMoving)
-		{
-			MatrixMoveEvents.OnStopMovementClient.Invoke();
-		}
-
+		
 		if ((int) oldMotionState.Speed != (int) newMotionState.Speed)
 		{
 			MatrixMoveEvents.OnSpeedChange.Invoke(oldMotionState.Speed, newMotionState.Speed);
@@ -242,11 +242,10 @@ public partial class MatrixMove
 				RotationEvent.Start));
 		}
 
-		sharedFacingState.RotationTime = newFacingState.RotationTime;
-		sharedFacingState.FlyingDirection = newFacingState.FlyingDirection;
-
-		if (TrySetClientRotation(newFacingState.FacingDirectionNetworkTime, newFacingState.FlyingDirection))
+		if (TrySetClientRotation(newFacingState.FacingDirectionNetworkTime, newFacingState.FacingDirection))
 		{
+			sharedFacingState.RotationTime = newFacingState.RotationTime;
+			sharedFacingState.FacingDirection = newFacingState.FacingDirection;
 			StartRotateClient();
 		}
 
@@ -275,7 +274,7 @@ public partial class MatrixMove
 			if (newState)
 			{
 				moveLerp = 0f;
-				moveNodes.GenerateMoveNodes(transform.position, serverFacingState.FlyingDirection.VectorInt);
+				moveNodes.GenerateMoveNodes(transform.position, serverFacingState.FacingDirection.VectorInt);
 				GetTargetMoveNode();
 			}
 		}

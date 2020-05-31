@@ -14,12 +14,6 @@ public struct MatrixFacingState : IEquatable<MatrixFacingState>
 	public Orientation FacingDirection;
 
 	/// <summary>
-	/// Current flying direction. Note this may not always match the rotation of the ship, as shuttles
-	/// can back up.
-	/// </summary>
-	public Orientation FlyingDirection;
-
-	/// <summary>
 	/// Last time facing direction was changed
 	/// </summary>
 	public double FacingDirectionNetworkTime;
@@ -37,7 +31,6 @@ public struct MatrixFacingState : IEquatable<MatrixFacingState>
 	public bool Equals(MatrixFacingState other)
 	{
 		return RotationTime.Equals(other.RotationTime) && FacingDirection.Equals(other.FacingDirection) &&
-		       FlyingDirection.Equals(other.FlyingDirection) &&
 		       FacingDirectionNetworkTime.Equals(other.FacingDirectionNetworkTime);
 	}
 
@@ -52,7 +45,6 @@ public struct MatrixFacingState : IEquatable<MatrixFacingState>
 		{
 			var hashCode = RotationTime.GetHashCode();
 			hashCode = (hashCode * 397) ^ FacingDirection.GetHashCode();
-			hashCode = (hashCode * 397) ^ FlyingDirection.GetHashCode();
 			hashCode = (hashCode * 397) ^ FacingDirectionNetworkTime.GetHashCode();
 			return hashCode;
 		}

@@ -53,8 +53,8 @@ public partial class MatrixMove
 
 		serverFacingState = new MatrixFacingState
 		{
-			FlyingDirection = InitialFacing,
-			FacingDirection = InitialFacing
+			FacingDirection = InitialFacing,
+			FacingDirectionNetworkTime = NetworkTime.time
 		};
 
 		serverMotionState = new MatrixMotionState
@@ -102,7 +102,7 @@ public partial class MatrixMove
 			SensorPositions = sensors.Select(sensor => Vector3Int.RoundToInt(sensor.transform.localPosition)).ToArray();
 
 			Logger.Log($"Initialized sensors at {string.Join(",", SensorPositions)}," +
-			           $" direction is {serverFacingState.FlyingDirection}", Category.Matrix);
+			           $" direction is {serverFacingState.FacingDirection}", Category.Matrix);
 		}
 
 		if (RotationSensors == null)
@@ -132,7 +132,7 @@ public partial class MatrixMove
 		{
 			MatrixMoveEvents.OnStartEnginesServer.Invoke();
 			EnginesOperational = true;
-			moveNodes.GenerateMoveNodes(transform.position, serverFacingState.FlyingDirection.VectorInt);
+			moveNodes.GenerateMoveNodes(transform.position, serverFacingState.FacingDirection.VectorInt);
 			GetTargetMoveNode();
 		}
 		else
@@ -224,7 +224,6 @@ public partial class MatrixMove
 				{
 					RotationTime = 2f,
 					FacingDirection = desiredOrientation,
-					FlyingDirection = desiredOrientation,
 					FacingDirectionNetworkTime = serverTime
 				};
 			}
@@ -499,7 +498,7 @@ public partial class MatrixMove
 				yield break;
 			}
 
-			Orientation currentDir = serverFacingState.FlyingDirection;
+			Orientation currentDir = serverFacingState.FacingDirection;
 
 			Vector3 xProjection = Vector3.Project(pos, Vector3.right);
 			int xProjectionX = (int) xProjection.x;

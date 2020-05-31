@@ -162,7 +162,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 				if (rotateLerp >= 1f)
 				{
-					moveNodes.GenerateMoveNodes(transform.position, sharedFacingState.FlyingDirection.VectorInt);
+					moveNodes.GenerateMoveNodes(transform.position, sharedFacingState.FacingDirection.VectorInt);
 					transform.rotation = InitialFacing.OffsetTo(sharedFacingState.FacingDirection).Quaternion;
 					IsRotating = false;
 					GetTargetMoveNode();
@@ -173,7 +173,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 				//rotate instantly
 				transform.rotation = InitialFacing.OffsetTo(sharedFacingState.FacingDirection).Quaternion;
 				IsRotating = false;
-				moveNodes.GenerateMoveNodes(transform.position, sharedFacingState.FlyingDirection.VectorInt);
+				moveNodes.GenerateMoveNodes(transform.position, sharedFacingState.FacingDirection.VectorInt);
 				GetTargetMoveNode();
 			}
 
@@ -204,7 +204,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 		moveLerp += Time.deltaTime * speed;
 		transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
-		matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FlyingDirection, rcsBurn);
+		matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FacingDirection, rcsBurn);
 		if (moveLerp >= 1f)
 		{
 			performingMove = false;
@@ -236,11 +236,11 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	void GetTargetMoveNode(bool disregardChecks = false)
 	{
-		if (!CanMoveTo(sharedFacingState.FlyingDirection) && SafetyProtocolsOn && !disregardChecks) return;
+		if (!CanMoveTo(sharedFacingState.FacingDirection) && SafetyProtocolsOn && !disregardChecks) return;
 
 		moveLerp = 0f;
 		fromPosition = transform.position;
-		toPosition = moveNodes.GetTargetNode(sharedFacingState.FlyingDirection.VectorInt);
+		toPosition = moveNodes.GetTargetNode(sharedFacingState.FacingDirection.VectorInt);
 	}
 
 
@@ -316,7 +316,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		return true;
 	}
 
-	private bool CanRotateTo(Orientation flyingDirection)
+	public bool CanRotateTo(Orientation flyingDirection)
 	{
 		if (rotationSensorContainerObject == null)
 		{
@@ -327,7 +327,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		Transform rotationSensorContainerTransform = rotationSensorContainerObject.transform;
 		rotationSensorContainerTransform.rotation = new Quaternion();
 		rotationSensorContainerTransform.Rotate(0f, 0f,
-			90f * serverFacingState.FlyingDirection.RotationsTo(flyingDirection));
+			90f * serverFacingState.FacingDirection.RotationsTo(flyingDirection));
 
 		for (var i = 0; i < RotationSensors.Length; i++)
 		{
@@ -370,7 +370,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 			Gizmos.color = color1;
 			Gizmos.DrawWireCube(transform.position, Vector3.one);
 
-			DebugGizmoUtils.DrawArrow(transform.position, serverFacingState.FlyingDirection.Vector * 2);
+			DebugGizmoUtils.DrawArrow(transform.position, serverFacingState.FacingDirection.Vector * 2);
 			return;
 		}
 
@@ -381,7 +381,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 		if (serverMotionState.IsMoving)
 		{
 			DebugGizmoUtils.DrawArrow(serverPos + Vector3.right / 3,
-				serverFacingState.FlyingDirection.Vector * serverMotionState.Speed);
+				serverFacingState.FacingDirection.Vector * serverMotionState.Speed);
 			DebugGizmoUtils.DrawText(serverMotionState.Speed.ToString(), serverPos + Vector3.right, 15);
 		}
 	}
