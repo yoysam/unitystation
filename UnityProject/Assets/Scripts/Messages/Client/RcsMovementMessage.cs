@@ -7,19 +7,22 @@ public class RcsMovementMessage : ClientMessage
 {
 	public Vector2Int Direction;
 	public uint MatrixMoveNetId;
+	public double NetworkTime;
 
 	public override void Process()
 	{
 		LoadNetworkObject(MatrixMoveNetId);
-		NetworkObject.GetComponent<MatrixMove>().ProcessRcsMoveRequest(SentByPlayer, Direction);
+		//TODO Validate the distance between the shuttle console and the sentbyplayer
+		NetworkObject.GetComponent<MatrixMove>().ProcessRcsMoveRequest(NetworkTime, Direction);
 	}
 
-	public static RcsMovementMessage Send(Vector2Int direction, uint matrixMoveId)
+	public static RcsMovementMessage Send(Vector2Int direction, uint matrixMoveId, double networkTime)
 	{
 		var msg = new RcsMovementMessage
 		{
 			Direction = direction,
-			MatrixMoveNetId = matrixMoveId
+			MatrixMoveNetId = matrixMoveId,
+			NetworkTime = networkTime
 		};
 		msg.Send();
 		return msg;

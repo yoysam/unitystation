@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using Mirror;
 using UnityEngine;
 
@@ -18,11 +19,12 @@ public partial class MatrixMove
 	private bool rcsBurn = false;
 
 	private Queue<PendingRcsMove> pendingRcsMoves = new Queue<PendingRcsMove>();
+	private Dictionary<double, Vector2Int> clientRcsHistory = new Dictionary<double, Vector2Int>();
 
 	private struct PendingRcsMove
 	{
-		public GameObject requestedBy;
 		public Vector2Int dir;
+		public double networkTime;
 	}
 
 	//For Rcs Movement
@@ -31,28 +33,40 @@ public partial class MatrixMove
 		if (moveActions.Direction() != Vector2Int.zero && !rcsBurn)
 		{
 			var dir = moveActions.Direction();
-			if (!isServer)
+			var networkTime = NetworkTime.time;
+			if (TryUseRcs(networkTime, dir))
 			{
-				RcsMovementMessage.Send(dir, netId);
-			}
-			else
-			{
-				ProcessRcsMoveRequest(playerControllingRcs, dir);
+				MoveViaRcs(dir);
+				RcsMovementMessage.Send(dir, netId, networkTime);
 			}
 		}
 	}
 
-	[Server]
-	public void ProcessRcsMoveRequest(ConnectedPlayer sentBy, Vector2Int dir)
+	bool TryUseRcs(double networkTime, Vector2Int direction)
 	{
-		if (sentBy == playerControllingRcs && dir != Vector2Int.zero)
+		if (clientRcsHistory.ContainsKey(networkTime))
 		{
-			if (!rcsBurn)
-			{
-				MoveViaRcs(dir);
-				RpcRcsMove(dir, sentBy.GameObject);
-			}
+			return false;
 		}
+
+		if (networkTime != 0.0)
+		{
+			clientRcsHistory.Add(networkTime, direction);
+		}
+
+		if (clientRcsHistory.Count > 60)
+		{
+			clientRcsHistory.Remove(clientRcsHistory.ElementAt(0).Key);
+		}
+
+		return true;
+	}
+
+	[Server]
+	public void ProcessRcsMoveRequest(double networkTime, Vector2Int dir)
+	{
+		MoveViaRcs(dir);
+		RpcRcsMove(dir, networkTime);
 	}
 
 	private void DoEndRcsBurnChecks()
@@ -63,7 +77,7 @@ public partial class MatrixMove
 			if (isServer)
 			{
 				MoveViaRcs(pendingMove.dir);
-				RpcRcsMove(pendingMove.dir, pendingMove.requestedBy);
+				RpcRcsMove(pendingMove.dir, pendingMove.networkTime);
 			}
 			else
 			{
@@ -77,19 +91,22 @@ public partial class MatrixMove
 	}
 
 	[ClientRpc]
-	private void RpcRcsMove(Vector2Int dir, GameObject requestBy)
+	private void RpcRcsMove(Vector2Int dir, double networkTime)
 	{
 		if (rcsBurn)
 		{
 			pendingRcsMoves.Enqueue(new PendingRcsMove
 			{
-				requestedBy = requestBy,
-				dir = dir
+				dir = dir,
+				networkTime = networkTime
 			});
 			return;
 		}
 
-		MoveViaRcs(dir);
+		if (TryUseRcs(networkTime, dir))
+		{
+			MoveViaRcs(dir);
+		}
 	}
 
 	private bool MoveViaRcs(Vector2Int dir)
