@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Mirror;
 using UnityEngine;
@@ -23,6 +24,8 @@ public partial class MatrixMove
 	public bool Initialized => clientStarted && receivedInitialState;
 
 	private HistoryNode[] serverHistory = new HistoryNode[8];
+	private Dictionary<double, float> clientSpeedHistroy = new Dictionary<double, float>();
+
 
 	public override void OnStartClient()
 	{
@@ -92,6 +95,28 @@ public partial class MatrixMove
 		}
 	}
 
+	bool TrySetClientSpeed(double networkTime, float speed)
+	{
+		if (clientSpeedHistroy.ContainsKey(networkTime))
+		{
+			return false;
+		}
+
+		if (networkTime != 0.0)
+		{
+			clientSpeedHistroy.Add(networkTime, speed);
+		}
+
+		sharedMotionState.Speed = speed;
+		sharedMotionState.SpeedNetworkTime = networkTime;
+
+		if (clientSpeedHistroy.Count > 60)
+		{
+			clientSpeedHistroy.Remove(clientSpeedHistroy.ElementAt(0).Key);
+		}
+		return true;
+	}
+
 	void SetAdjustmentSpeed(Vector2 diff, double clientTilesPerSec)
 	{
 		if (diff == Vector2.zero || speedAdjust != 0)
@@ -139,19 +164,8 @@ public partial class MatrixMove
 			GetTargetMoveNode();
 		}
 
-		if (newMotionState.Interactee != NetId.Invalid)
-		{
-			if (!NetworkIdentity.spawned.ContainsKey(newMotionState.Interactee))
-			{
-				sharedMotionState.Speed = newMotionState.Speed;
-			}
-		}
-		else
-		{
-			sharedMotionState.Speed = newMotionState.Speed;
-		}
+		TrySetClientSpeed(newMotionState.SpeedNetworkTime, newMotionState.Speed);
 
-		
 		if (oldMotionState.IsMoving && !newMotionState.IsMoving)
 		{
 			MatrixMoveEvents.OnStopMovementClient.Invoke();

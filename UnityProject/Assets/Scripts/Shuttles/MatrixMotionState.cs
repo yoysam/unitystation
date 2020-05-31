@@ -7,14 +7,18 @@ using UnityEngine;
 public struct MatrixMotionState : IEquatable<MatrixMotionState>
 {
 	public bool IsMoving;
+
 	public float Speed;
 
+	//last time the speed was adjusted
+	public double SpeedNetworkTime;
+
 	public Vector3 Position;
-	public uint Interactee;
 
 	public bool Equals(MatrixMotionState other)
 	{
-		return IsMoving == other.IsMoving && Speed.Equals(other.Speed) && Position.Equals(other.Position) && Equals(Interactee, other.Interactee);
+		return IsMoving == other.IsMoving && Speed.Equals(other.Speed) &&
+		       SpeedNetworkTime.Equals(other.SpeedNetworkTime) && Position.Equals(other.Position);
 	}
 
 	public override bool Equals(object obj)
@@ -28,8 +32,8 @@ public struct MatrixMotionState : IEquatable<MatrixMotionState>
 		{
 			var hashCode = IsMoving.GetHashCode();
 			hashCode = (hashCode * 397) ^ Speed.GetHashCode();
+			hashCode = (hashCode * 397) ^ SpeedNetworkTime.GetHashCode();
 			hashCode = (hashCode * 397) ^ Position.GetHashCode();
-			hashCode = (hashCode * 397) ^ (Interactee != null ? Interactee.GetHashCode() : 0);
 			return hashCode;
 		}
 	}

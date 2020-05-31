@@ -305,7 +305,7 @@ public partial class MatrixMove
 			IsMoving = isMoving,
 			Speed = serverMotionState.Speed,
 			Position = serverMotionState.Position,
-			Interactee = serverMotionState.Interactee
+			SpeedNetworkTime = serverMotionState.SpeedNetworkTime
 		};
 	}
 
@@ -383,7 +383,7 @@ public partial class MatrixMove
 			IsMoving = serverMotionState.IsMoving,
 			Speed = serverMotionState.Speed,
 			Position = position,
-			Interactee = serverMotionState.Interactee
+			SpeedNetworkTime = serverMotionState.SpeedNetworkTime
 		};
 	}
 

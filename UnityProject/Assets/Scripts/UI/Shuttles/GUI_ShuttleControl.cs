@@ -413,16 +413,11 @@ public class GUI_ShuttleControl : NetTab
 		MatrixMove.TryRotate(false);
 	}
 
-	public void SetSpeed(float speed)
-	{
-		SetSpeed(speed, null);
-	}
-
 	/// <summary>
 	/// Sets shuttle speed.
 	/// </summary>
 	/// <param name="speedMultiplier"></param>
-	public void SetSpeed(float speedMultiplier, ConnectedPlayer player)
+	public void SetSpeed(float speedMultiplier)
 	{
 		if (MatrixMove == null)
 		{
@@ -430,7 +425,8 @@ public class GUI_ShuttleControl : NetTab
 			return;
 		}
 		float speed = speedMultiplier * (MatrixMove.MaxSpeed - 1);
-
-		MatrixMove.SetSpeed(speed, player?.GameObject);
+		var networkTime = NetworkTime.time;
+		MatrixMoveSpeedRequest.Send(matrixMove.netId, PlayerManager.LocalPlayer, networkTime, speed);
+		MatrixMove.SetSpeed(speed, networkTime);
 	}
 }

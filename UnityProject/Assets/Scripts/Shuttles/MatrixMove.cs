@@ -253,7 +253,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	}
 
 	/// Set ship's speed using absolute value. it will be truncated if it's out of bounds
-	public void SetSpeed(float absoluteValue, GameObject interactee = null)
+	public void SetSpeed(float absoluteValue, double networkTime = 0.0)
 	{
 		if (!isServer && absoluteValue <= 0f && sharedMotionState.Speed > 0)
 		{
@@ -262,24 +262,28 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 		var speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed);
 
-		uint netId = serverMotionState.Interactee;
-		if (interactee != null)
-		{
-			netId = interactee.GetComponent<NetworkIdentity>().netId;
-		}
-
 		if (isServer)
 		{
+			double serverTime = NetworkTime.time;
+			if (networkTime != 0.0)
+			{
+				serverTime = networkTime;
+			}
+
 			serverMotionState = new MatrixMotionState
 			{
 				IsMoving = serverMotionState.IsMoving,
 				Speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed),
 				Position = serverMotionState.Position,
-				Interactee = netId
+				SpeedNetworkTime = serverTime
 			};
-		}
 
-		sharedMotionState.Speed = speed;
+			sharedMotionState.Speed = speed;
+		}
+		else
+		{
+			TrySetClientSpeed(networkTime, speed);
+		}
 	}
 
 	public override void LateUpdateMe()
