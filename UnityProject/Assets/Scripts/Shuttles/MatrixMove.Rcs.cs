@@ -37,9 +37,8 @@ public partial class MatrixMove
 		{
 			var dir = moveActions.Direction();
 			var networkTime = NetworkTime.time;
-			if (TryUseRcs(networkTime, dir))
+			if (MoveViaRcs(networkTime, dir))
 			{
-				MoveViaRcs(dir);
 				RcsMovementMessage.Send(dir, netId, networkTime);
 			}
 		}
@@ -68,8 +67,10 @@ public partial class MatrixMove
 	[Server]
 	public void ProcessRcsMoveRequest(double networkTime, Vector2Int dir)
 	{
-		MoveViaRcs(dir);
-		RpcRcsMove(dir, networkTime);
+		if (MoveViaRcs(networkTime, dir))
+		{
+			RpcRcsMove(dir, networkTime);
+		}
 	}
 
 	private void DoEndRcsBurnChecks()
@@ -79,7 +80,7 @@ public partial class MatrixMove
 			var pendingMove = pendingRcsMoves.Dequeue();
 			if (isServer)
 			{
-				if (!MoveViaRcs(pendingMove.dir))
+				if (!MoveViaRcs(pendingMove.networkTime, pendingMove.dir))
 				{
 					rcsBurn = false;
 				}
@@ -90,7 +91,7 @@ public partial class MatrixMove
 			}
 			else
 			{
-				if (!MoveViaRcs(pendingMove.dir))
+				if (!MoveViaRcs(pendingMove.networkTime, pendingMove.dir))
 				{
 					rcsBurn = false;
 				};
@@ -112,17 +113,21 @@ public partial class MatrixMove
 				dir = dir,
 				networkTime = networkTime
 			});
-			return;
 		}
-
-		if (TryUseRcs(networkTime, dir))
+		else
 		{
-			MoveViaRcs(dir);
+			MoveViaRcs(networkTime, dir);
 		}
 	}
 
-	private bool MoveViaRcs(Vector2Int dir)
+	private bool MoveViaRcs(double networkTime, Vector2Int dir)
 	{
+		if (!TryUseRcs(networkTime, dir))
+		{
+			rcsBurn = false;
+			return false;
+		}
+
 		rcsBurn = true;
 		if (sharedMotionState.Speed > 0f)
 		{
