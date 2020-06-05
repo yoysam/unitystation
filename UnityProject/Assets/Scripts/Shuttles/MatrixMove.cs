@@ -166,6 +166,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 					transform.rotation = InitialFacing.OffsetTo(sharedFacingState.FacingDirection).Quaternion;
 					IsRotating = false;
 					GetTargetMoveNode();
+					if (!isServer) clientTestPositionTrigger = true;
 				}
 			}
 			else
@@ -175,6 +176,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 				IsRotating = false;
 				moveNodes.GenerateMoveNodes(transform.position, sharedFacingState.FacingDirection.VectorInt);
 				GetTargetMoveNode();
+				if (!isServer) clientTestPositionTrigger = true;
 			}
 
 			return true;
@@ -187,7 +189,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	{
 		if (EnginesOperational && sharedMotionState.Speed > 0f)
 		{
-			PerformMove(sharedMotionState.Speed + speedAdjust);
+			PerformMove(sharedMotionState.Speed);
 			return;
 		}
 
@@ -202,7 +204,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	{
 		performingMove = true;
 
-		moveLerp += Time.deltaTime * speed;
+		moveLerp += Time.deltaTime * (speed + speedAdjust);
 		transform.position = Vector2.Lerp(fromPosition, toPosition, moveLerp);
 		matrixPositionFilter.FilterPosition(transform, transform.position, sharedFacingState.FacingDirection, rcsBurn);
 		if (moveLerp >= 1f)
@@ -213,19 +215,23 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 			if (isServer)
 			{
 				UpdateServerStatePosition(toPosition);
+				speedAdjust = 0f;
+			}
+			else
+			{
+				speedAdjust = clientPendingSpeedAdjust;
+				clientPendingSpeedAdjust = 0f;
 			}
 
 			if (rcsBurn && ProcessPendingBurns()) return;
 
 			GetTargetMoveNode();
-
-			speedAdjust = 0f;
 		}
 	}
 
 	private void CreateHistoryNode()
 	{
-		var node = moveNodes.AddHistoryNode(toPosition.To2Int(), NetworkTime.time);
+		var node = moveNodes.AddHistoryNode(toPosition.To2Int(), NetworkTime.time, sharedFacingState.FacingDirection.VectorInt);
 		if (isServer)
 		{
 			RpcReceiveServerHistoryNode(node);
@@ -238,6 +244,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 		moveLerp = 0f;
 		fromPosition = transform.position;
+
 		toPosition = moveNodes.GetTargetNode(sharedFacingState.FacingDirection.VectorInt);
 	}
 

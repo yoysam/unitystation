@@ -69,7 +69,7 @@ public class MatrixMoveNodes
 	/// Requires the position of the node and the network time
 	/// that the node was reached
 	/// </summary>
-	public HistoryNode AddHistoryNode(Vector2Int position, double networkTime)
+	public HistoryNode AddHistoryNode(Vector2Int position, double networkTime, Vector2Int facingDirection)
 	{
 		for (int i = historyNodes.Length - 2; i >= 0; i--)
 		{
@@ -79,7 +79,8 @@ public class MatrixMoveNodes
 				historyNodes[i] = new HistoryNode
 				{
 					nodePos = position,
-					networkTime = networkTime
+					networkTime = networkTime,
+					facingDirection = facingDirection
 				};
 				return historyNodes[i];
 			}
@@ -93,6 +94,7 @@ public struct HistoryNode
 {
 	public Vector2Int nodePos;
 	public double networkTime;
+	public Vector2Int facingDirection;
 
 	public HistoryNode GenerateBlankNode()
 	{

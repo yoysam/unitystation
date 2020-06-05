@@ -27,6 +27,10 @@ public partial class MatrixMove
 	private Dictionary<double, float> clientSpeedHistory = new Dictionary<double, float>();
 	private Dictionary<double, Orientation> clientRotationHistory = new Dictionary<double, Orientation>();
 
+	private float clientPendingSpeedAdjust = 0f;
+	private bool clientTestPositionTrigger;
+
+
 
 	public override void OnStartClient()
 	{
@@ -54,8 +58,6 @@ public partial class MatrixMove
 	[ClientRpc]
 	private void RpcReceiveServerHistoryNode(HistoryNode historyNode)
 	{
-		return;
-		
 		if (isServer) return;
 
 		for (int i = serverHistory.Length - 2; i >= 0; i--)
@@ -67,15 +69,29 @@ public partial class MatrixMove
 			}
 		}
 
-		if (serverHistory[1].networkTime != -1 && moveNodes.historyNodes[1].nodePos != Vector2.zero
-		                                       && moveNodes.historyNodes[0].nodePos != Vector2.zero)
+		foreach (var e in moveNodes.historyNodes)
 		{
-			var travelTimePerTileServer = 1f / (serverHistory[0].networkTime - serverHistory[1].networkTime);
-			var travelTimePerTileClient =
-				1f / (moveNodes.historyNodes[0].networkTime - moveNodes.historyNodes[1].networkTime);
-			SetAdjustmentSpeed(historyNode.nodePos - moveNodes.historyNodes[0].nodePos, travelTimePerTileClient);
-			log +=
-				$"[{serverMotionState.Speed}] Server {travelTimePerTileServer} tiles / sec || [{sharedMotionState.Speed}] Client {travelTimePerTileClient} tiles / sec \r\n";
+			if (e.nodePos == historyNode.nodePos && e.facingDirection == historyNode.facingDirection)
+			{
+				Debug.Log($"Find client history: client time: {e.networkTime} server time: {historyNode.networkTime} ");
+			}
+		}
+
+		// if (serverHistory[1].networkTime != -1 && moveNodes.historyNodes[1].nodePos != Vector2.zero
+		//                                        && moveNodes.historyNodes[0].nodePos != Vector2.zero)
+		// {
+		// 	var travelTimePerTileServer = 1f / (serverHistory[0].networkTime - serverHistory[1].networkTime);
+		// 	var travelTimePerTileClient =
+		// 		1f / (moveNodes.historyNodes[0].networkTime - moveNodes.historyNodes[1].networkTime);
+		// 	SetAdjustmentSpeed(historyNode.nodePos - moveNodes.historyNodes[0].nodePos, travelTimePerTileClient);
+		// 	log +=
+		// 		$"[{serverMotionState.Speed}] Server {travelTimePerTileServer} tiles / sec || [{sharedMotionState.Speed}] Client {travelTimePerTileClient} tiles / sec \r\n";
+		// }
+
+		if (clientTestPositionTrigger)
+		{
+			clientTestPositionTrigger = false;
+			ClientTestPositionAgainstServer(historyNode);
 		}
 
 		log +=
@@ -94,7 +110,48 @@ public partial class MatrixMove
 			moveLerp = 0f;
 			performingMove = true;
 			moveNodes.GenerateMoveNodes(toPosition, sharedFacingState.FacingDirection.VectorInt);
-			File.WriteAllText(Path.Combine(Application.streamingAssetsPath, "motionlog.txt"), log);
+			//File.WriteAllText(Path.Combine(Application.streamingAssetsPath, "motionlog.txt"), log);
+		}
+	}
+
+	void ClientTestPositionAgainstServer(HistoryNode historyNode)
+	{
+		//find the node in the clients history:
+		foreach (var e in moveNodes.historyNodes)
+		{
+			if (e.nodePos == historyNode.nodePos && e.facingDirection == historyNode.facingDirection)
+			{
+				if (Mathf.Abs((float)e.networkTime - (float)historyNode.networkTime) < 0.5f)
+				{
+					Debug.Log($"This is fine: client time: {e.networkTime} server time: {historyNode.networkTime} ");
+					return;
+				}
+			}
+		}
+
+
+		if (historyNode.facingDirection != sharedFacingState.FacingDirection.VectorInt)
+		{
+			//Retest next one
+			clientTestPositionTrigger = true;
+		}
+		else
+		{
+			Debug.Log("Matrix Move course correction");
+			var newPostion = toPosition;
+			switch (sharedFacingState.FacingDirection.AsEnum())
+			{
+				case OrientationEnum.Right:
+				case OrientationEnum.Left:
+					newPostion.y = historyNode.nodePos.y;
+					break;
+				case OrientationEnum.Down:
+				case OrientationEnum.Up:
+					newPostion.x = historyNode.nodePos.x;
+					break;
+
+			}
+			moveNodes.GenerateMoveNodes(newPostion, sharedFacingState.FacingDirection.VectorInt);
 		}
 	}
 
@@ -166,36 +223,36 @@ public partial class MatrixMove
 
 	void SetAdjustmentSpeed(Vector2 diff, double clientTilesPerSec)
 	{
-		if (diff == Vector2.zero || speedAdjust != 0)
+		if (diff == Vector2.zero)
 		{
 			return;
 		}
 
-		diff *= 0.5f;
+		diff *= 4f;
 		switch (sharedFacingState.FacingDirection.AsEnum())
 		{
 			case OrientationEnum.Left:
 				var x = diff.x * -1;
-				speedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + x) / clientTilesPerSec)) -
-				                       sharedMotionState.Speed);
+				clientPendingSpeedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + x) / clientTilesPerSec)) -
+				                                    sharedMotionState.Speed);
 
 				break;
 			case OrientationEnum.Right:
-				speedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + diff.x) / clientTilesPerSec)) -
-				                       sharedMotionState.Speed);
+				clientPendingSpeedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + diff.x) / clientTilesPerSec)) -
+				                                    sharedMotionState.Speed);
 				break;
 			case OrientationEnum.Up:
-				speedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + diff.y) / clientTilesPerSec)) -
-				                       sharedMotionState.Speed);
+				clientPendingSpeedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + diff.y) / clientTilesPerSec)) -
+				                                    sharedMotionState.Speed);
 				break;
 			case OrientationEnum.Down:
 				var y = diff.y * -1;
-				speedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + y) / clientTilesPerSec)) -
-				                       sharedMotionState.Speed);
+				clientPendingSpeedAdjust = (float) ((sharedMotionState.Speed * ((clientTilesPerSec + y) / clientTilesPerSec)) -
+				                                    sharedMotionState.Speed);
 				break;
 		}
 
-		speedAdjust = Mathf.Clamp(speedAdjust, (sharedMotionState.Speed * -1) + 2f, 200f);
+		clientPendingSpeedAdjust = Mathf.Clamp(speedAdjust, (sharedMotionState.Speed * -1) + 2f, 200f);
 
 		//	Debug.Log("Set speed adjust: " + speedAdjust);
 		log += $"Set speed adjust: {speedAdjust} \r\n";
