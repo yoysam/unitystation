@@ -90,6 +90,9 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	private GameObject[] RotationSensors;
 	private GameObject rotationSensorContainerObject;
 
+	private Vector2Int stopRequestPos;
+	private bool stopRequest = false;
+
 	/// <summary>
 	/// Tracks the rotation we are currently performing.
 	/// Null when a rotation is not in progress.
@@ -116,7 +119,7 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 
 	private float moveLerp = 1f;
 	private Vector2 fromPosition;
-	private Vector2 toPosition;
+	public Vector2 toPosition { get; private set; }
 	private bool performingMove = false;
 	private float speedAdjust = 0f;
 
@@ -253,11 +256,6 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 	/// Set ship's speed using absolute value. it will be truncated if it's out of bounds
 	public void SetSpeed(float absoluteValue, double networkTime = 0.0)
 	{
-		if (!isServer && absoluteValue <= 0f && sharedMotionState.Speed > 0)
-		{
-			MatrixMoveRequestStop.Send(GetComponent<NetworkIdentity>().netId, toPosition.To2Int());
-		}
-
 		var speed = Mathf.Clamp(absoluteValue, 0f, MaxSpeed);
 
 		if (isServer)
@@ -277,6 +275,8 @@ public partial class MatrixMove : ManagedNetworkBehaviour, IPlayerControllable
 			};
 
 			sharedMotionState.Speed = speed;
+			Debug.Log($"TELL CLIENTS TO SET THEIR SPEEDS: {speed}");
+			RpcSetClientSpeed(speed, serverTime);
 		}
 		else
 		{

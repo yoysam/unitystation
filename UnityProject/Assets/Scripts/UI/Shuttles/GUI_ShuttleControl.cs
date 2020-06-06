@@ -66,6 +66,14 @@ public class GUI_ShuttleControl : NetTab
 	private NetColorChanger OffOverlay => (NetColorChanger)this[nameof(OffOverlay)];
 	private NetColorChanger Rulers => (NetColorChanger)this[nameof(Rulers)];
 
+	class SpeedChange
+	{
+		public float speed;
+		public double networkTime;
+	}
+
+	private List<SpeedChange> speedChangeList = new List<SpeedChange>();
+
 	public override void OnEnable()
 	{
 		base.OnEnable();
@@ -413,6 +421,27 @@ public class GUI_ShuttleControl : NetTab
 		MatrixMove.TryRotate(false);
 	}
 
+	private float waitTime = 0f;
+
+	void Update()
+	{
+		waitTime += Time.deltaTime;
+			if (waitTime > 0.5f)
+			{
+				waitTime = 0f;
+				if (speedChangeList.Count > 0)
+				{
+					var change = speedChangeList[speedChangeList.Count - 1];
+					TrySetSpeed(change.speed, change.networkTime);
+					Debug.Log($"QUEUE RECORD CHOSEN {change.speed} {change.networkTime}");
+					speedChangeList.Clear();
+				}
+			}
+
+	}
+
+
+	private float speedCache = -1f;
 	/// <summary>
 	/// Sets shuttle speed.
 	/// </summary>
@@ -426,7 +455,27 @@ public class GUI_ShuttleControl : NetTab
 		}
 		float speed = speedMultiplier * (MatrixMove.MaxSpeed - 1);
 		var networkTime = NetworkTime.time;
-		MatrixMoveSpeedRequest.Send(matrixMove.netId, PlayerManager.LocalPlayer, networkTime, speed);
-		MatrixMove.SetSpeed(speed, networkTime);
+		speedChangeList.Add(new SpeedChange
+		{
+			speed = speed,
+			networkTime = networkTime
+		});
+	}
+
+	void TrySetSpeed(float speed, double networkTime)
+	{
+		if (speed != speedCache)
+		{
+			if (MatrixMove.TrySetClientSpeed(networkTime, speed))
+			{
+				MatrixMoveSpeedRequest.Send(matrixMove.netId, PlayerManager.LocalPlayer, networkTime, speed);
+				if (speed <= 0f && speedCache > 0)
+				{
+					MatrixMoveRequestStop.Send(MatrixMove.netId, MatrixMove.toPosition.To2Int());
+				}
+			}
+
+			speedCache = speed;
+		}
 	}
 }

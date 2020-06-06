@@ -11,12 +11,14 @@ public class MatrixMoveSpeedRequest : ClientMessage
 	public override void Process()
 	{
 		LoadNetworkObject(MatrixMove);
+		Debug.Log($"PROCESS SPEED REQUEST {Speed} {NetworkTime}");
 		//TODO: Validation with the interactee. Try to find the shuttle gui and measure the distance
 		NetworkObject.GetComponent<MatrixMove>().SetSpeed(Speed, NetworkTime);
 	}
 
 	public static MatrixMoveSpeedRequest Send(uint matrixMoveNetId, GameObject interactee, double networkTime, float speed)
 	{
+		Debug.Log("TELL SERVER TO SET SPEED");
 		MatrixMoveSpeedRequest msg = new MatrixMoveSpeedRequest
 		{
 			MatrixMove = matrixMoveNetId,

@@ -11,7 +11,7 @@ public partial class MatrixMove
 	//server-only values
 	[SyncVar(hook=nameof(UpdateClientFacingState))]
 	public MatrixFacingState serverFacingState;
-	[SyncVar(hook=nameof(UpdateClientMotionState))]
+	[SyncVar]
 	public MatrixMotionState serverMotionState;
 	public bool IsMovingServer => serverMotionState.IsMoving && serverMotionState.Speed > 0f;
 
@@ -258,7 +258,16 @@ public partial class MatrixMove
 	public void ProcessStopRequest(ConnectedPlayer requestee, Vector2Int proposedStopTile)
 	{
 		Debug.Log($"Stop request received from: {requestee.Name} tile {proposedStopTile}");
+		// stopRequestPos = proposedStopTile;
+		// stopRequest = true;
+		toPosition = proposedStopTile;
+		fromPosition = transform.position;
+		moveLerp = 0f;
+		performingMove = true;
+		RpcStopRequest(proposedStopTile);
 	}
+
+
 
 	/// Move for n tiles, regardless of direction, and stop
 	[Server]

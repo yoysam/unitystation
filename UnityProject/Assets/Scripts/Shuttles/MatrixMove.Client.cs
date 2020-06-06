@@ -38,7 +38,7 @@ public partial class MatrixMove
 		SyncPivot(pivot, pivot);
 		SyncInitialPosition(initialPosition, initialPosition);
 		UpdateClientFacingState(new MatrixFacingState(), serverFacingState);
-		UpdateClientMotionState(new MatrixMotionState(), serverMotionState);
+		sharedMotionState = serverMotionState;
 		UpdateOperationalState(false, EnginesOperational);
 		clientStarted = true;
 	}
@@ -52,8 +52,6 @@ public partial class MatrixMove
 	{
 		this.pivot = pivot.RoundToInt();
 	}
-
-	private string log = "";
 
 	[ClientRpc]
 	private void RpcReceiveServerHistoryNode(HistoryNode historyNode)
@@ -77,40 +75,10 @@ public partial class MatrixMove
 			}
 		}
 
-		// if (serverHistory[1].networkTime != -1 && moveNodes.historyNodes[1].nodePos != Vector2.zero
-		//                                        && moveNodes.historyNodes[0].nodePos != Vector2.zero)
-		// {
-		// 	var travelTimePerTileServer = 1f / (serverHistory[0].networkTime - serverHistory[1].networkTime);
-		// 	var travelTimePerTileClient =
-		// 		1f / (moveNodes.historyNodes[0].networkTime - moveNodes.historyNodes[1].networkTime);
-		// 	SetAdjustmentSpeed(historyNode.nodePos - moveNodes.historyNodes[0].nodePos, travelTimePerTileClient);
-		// 	log +=
-		// 		$"[{serverMotionState.Speed}] Server {travelTimePerTileServer} tiles / sec || [{sharedMotionState.Speed}] Client {travelTimePerTileClient} tiles / sec \r\n";
-		// }
-
 		if (clientTestPositionTrigger)
 		{
 			clientTestPositionTrigger = false;
 			ClientTestPositionAgainstServer(historyNode);
-		}
-
-		log +=
-			$"Server history pos {historyNode.nodePos} time: {historyNode.networkTime} our pos {moveNodes.historyNodes[0].nodePos} time: {moveNodes.historyNodes[0].networkTime} \r\n";
-
-		var diff = NetworkTime.time - historyNode.networkTime;
-		var diffWithRttAdjust = diff - NetworkTime.rtt;
-		// Debug.Log($"Diff {diff} diff with rtt adjust {diffWithRttAdjust}");
-		// Debug.Log($"Clients speed state {sharedMotionState.Speed}");
-
-		if (sharedMotionState.Speed == 0)
-		{
-			fromPosition = transform.position;
-			toPosition = historyNode.nodePos;
-			speedAdjust = Mathf.Round(Vector2.Distance(fromPosition, toPosition)) * 2f;
-			moveLerp = 0f;
-			performingMove = true;
-			moveNodes.GenerateMoveNodes(toPosition, sharedFacingState.FacingDirection.VectorInt);
-			//File.WriteAllText(Path.Combine(Application.streamingAssetsPath, "motionlog.txt"), log);
 		}
 	}
 
@@ -128,7 +96,6 @@ public partial class MatrixMove
 				}
 			}
 		}
-
 
 		if (historyNode.facingDirection != sharedFacingState.FacingDirection.VectorInt)
 		{
@@ -155,13 +122,20 @@ public partial class MatrixMove
 		}
 	}
 
-	bool TrySetClientSpeed(double networkTime, float speed)
+	[ClientRpc]
+	private void RpcSetClientSpeed(float speed, double networkTime)
+	{
+		TrySetClientSpeed(networkTime, speed);
+	}
+
+	public bool TrySetClientSpeed(double networkTime, float speed)
 	{
 		if (clientSpeedHistory.ContainsKey(networkTime))
 		{
+			Debug.Log($"We already have a speed record for: {networkTime}");
 			return false;
 		}
-
+		Debug.Log($"SET SPEED {speed} {networkTime}");
 		if (networkTime != 0.0)
 		{
 			clientSpeedHistory.Add(networkTime, speed);
@@ -255,33 +229,43 @@ public partial class MatrixMove
 		clientPendingSpeedAdjust = Mathf.Clamp(speedAdjust, (sharedMotionState.Speed * -1) + 2f, 200f);
 
 		//	Debug.Log("Set speed adjust: " + speedAdjust);
-		log += $"Set speed adjust: {speedAdjust} \r\n";
 	}
 
-	public void UpdateClientMotionState(MatrixMotionState oldMotionState, MatrixMotionState newMotionState)
+	[ClientRpc]
+	public void RpcStopRequest(Vector2Int stopPos)
 	{
-		if (isServer) return;
+		// if (stopPos != toPosition)
+		// {
+			toPosition = stopPos;
+			fromPosition = transform.position;
+			moveLerp = 0f;
+			performingMove = true;
+			Debug.Log($"DO STOP REQUEST: {stopPos}");
+			stopRequestPos = stopPos;
+			// stopRequest = true;
 
-		if (TrySetClientSpeed(newMotionState.SpeedNetworkTime, newMotionState.Speed))
-		{
-			if (!oldMotionState.IsMoving && newMotionState.IsMoving)
-			{
-				MatrixMoveEvents.OnStartMovementClient.Invoke();
-				GetTargetMoveNode();
-			}
-
-			if (oldMotionState.IsMoving && !newMotionState.IsMoving)
-			{
-				MatrixMoveEvents.OnStopMovementClient.Invoke();
-			}
-		}
-
-		if ((int) oldMotionState.Speed != (int) newMotionState.Speed)
-		{
-			MatrixMoveEvents.OnSpeedChange.Invoke(oldMotionState.Speed, newMotionState.Speed);
-		}
-
-		serverMotionState = newMotionState;
+			//From the old state update hook
+			// if (isServer) return;
+			//
+			// if (TrySetClientSpeed(newMotionState.SpeedNetworkTime, newMotionState.Speed))
+			// {
+			// 	if (!oldMotionState.IsMoving && newMotionState.IsMoving)
+			// 	{
+			// 		MatrixMoveEvents.OnStartMovementClient.Invoke();
+			// 		GetTargetMoveNode();
+			// 	}
+			//
+			// 	if (oldMotionState.IsMoving && !newMotionState.IsMoving)
+			// 	{
+			// 		MatrixMoveEvents.OnStopMovementClient.Invoke();
+			// 	}
+			// }
+			//
+			// if ((int) oldMotionState.Speed != (int) newMotionState.Speed)
+			// {
+			// 	MatrixMoveEvents.OnSpeedChange.Invoke(oldMotionState.Speed, newMotionState.Speed);
+			// }
+		//}
 	}
 
 	public void UpdateClientFacingState(MatrixFacingState oldFacingState, MatrixFacingState newFacingState)
