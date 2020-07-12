@@ -471,7 +471,8 @@ public class GUI_ShuttleControl : NetTab
 				MatrixMoveSpeedRequest.Send(matrixMove.netId, PlayerManager.LocalPlayer, networkTime, speed);
 				if (speed <= 0f && speedCache > 0)
 				{
-					MatrixMoveRequestStop.Send(MatrixMove.netId, MatrixMove.toPosition.To2Int());
+					MatrixMoveRequestStop.Send(MatrixMove.netId, MatrixMove.toPosition.To2Int(), networkTime);
+					MatrixMove.PerformClientStop(MatrixMove.toPosition.To2Int(), networkTime);
 				}
 			}
 

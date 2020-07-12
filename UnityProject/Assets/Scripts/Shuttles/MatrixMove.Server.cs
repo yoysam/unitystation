@@ -255,7 +255,7 @@ public partial class MatrixMove
 	}
 
 	[Server]
-	public void ProcessStopRequest(ConnectedPlayer requestee, Vector2Int proposedStopTile)
+	public void ProcessStopRequest(ConnectedPlayer requestee, Vector2Int proposedStopTile, double stopTime)
 	{
 		Debug.Log($"Stop request received from: {requestee.Name} tile {proposedStopTile}");
 		// stopRequestPos = proposedStopTile;
@@ -264,7 +264,7 @@ public partial class MatrixMove
 		fromPosition = transform.position;
 		moveLerp = 0f;
 		performingMove = true;
-		RpcStopRequest(proposedStopTile);
+		RpcStopRequest(proposedStopTile, stopTime);
 	}
 
 

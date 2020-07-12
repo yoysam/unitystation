@@ -5,19 +5,21 @@ public class MatrixMoveRequestStop : ClientMessage
 {
 	public uint MatrixMove;
 	public Vector2Int ProposedStopTile;
+	public double TimeOfStop;
 
 	public override void Process()
 	{
 		LoadNetworkObject(MatrixMove);
-		NetworkObject.GetComponent<MatrixMove>().ProcessStopRequest(SentByPlayer, ProposedStopTile);
+		NetworkObject.GetComponent<MatrixMove>().ProcessStopRequest(SentByPlayer, ProposedStopTile, TimeOfStop);
 	}
 
-	public static MatrixMoveRequestStop Send(uint matrixMoveNetId, Vector2Int proposedStopTile)
+	public static MatrixMoveRequestStop Send(uint matrixMoveNetId, Vector2Int proposedStopTile, double stopTime)
 	{
 		MatrixMoveRequestStop msg = new MatrixMoveRequestStop
 		{
 			MatrixMove = matrixMoveNetId,
-			ProposedStopTile = proposedStopTile
+			ProposedStopTile = proposedStopTile,
+			TimeOfStop = stopTime
 		};
 		msg.Send();
 		return msg;
@@ -28,6 +30,7 @@ public class MatrixMoveRequestStop : ClientMessage
 		base.Deserialize(reader);
 		MatrixMove = reader.ReadUInt32();
 		ProposedStopTile = reader.ReadVector2Int();
+		TimeOfStop = reader.ReadDouble();
 	}
 
 	public override void Serialize(NetworkWriter writer)
@@ -35,5 +38,6 @@ public class MatrixMoveRequestStop : ClientMessage
 		base.Serialize(writer);
 		writer.WriteUInt32(MatrixMove);
 		writer.WriteVector2Int(ProposedStopTile);
+		writer.WriteDouble(TimeOfStop);
 	}
 }

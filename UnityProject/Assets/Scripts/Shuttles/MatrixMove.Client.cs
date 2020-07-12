@@ -26,11 +26,10 @@ public partial class MatrixMove
 	private HistoryNode[] serverHistory = new HistoryNode[8];
 	private Dictionary<double, float> clientSpeedHistory = new Dictionary<double, float>();
 	private Dictionary<double, Orientation> clientRotationHistory = new Dictionary<double, Orientation>();
+	private List<double> stopTimeHistory = new List<double>();
 
 	private float clientPendingSpeedAdjust = 0f;
 	private bool clientTestPositionTrigger;
-
-
 
 	public override void OnStartClient()
 	{
@@ -232,40 +231,23 @@ public partial class MatrixMove
 	}
 
 	[ClientRpc]
-	public void RpcStopRequest(Vector2Int stopPos)
+	public void RpcStopRequest(Vector2Int stopPos, double stopTime)
 	{
-		// if (stopPos != toPosition)
-		// {
-			toPosition = stopPos;
-			fromPosition = transform.position;
-			moveLerp = 0f;
-			performingMove = true;
-			Debug.Log($"DO STOP REQUEST: {stopPos}");
-			stopRequestPos = stopPos;
-			// stopRequest = true;
+		PerformClientStop(stopPos, stopTime);
+	}
 
-			//From the old state update hook
-			// if (isServer) return;
-			//
-			// if (TrySetClientSpeed(newMotionState.SpeedNetworkTime, newMotionState.Speed))
-			// {
-			// 	if (!oldMotionState.IsMoving && newMotionState.IsMoving)
-			// 	{
-			// 		MatrixMoveEvents.OnStartMovementClient.Invoke();
-			// 		GetTargetMoveNode();
-			// 	}
-			//
-			// 	if (oldMotionState.IsMoving && !newMotionState.IsMoving)
-			// 	{
-			// 		MatrixMoveEvents.OnStopMovementClient.Invoke();
-			// 	}
-			// }
-			//
-			// if ((int) oldMotionState.Speed != (int) newMotionState.Speed)
-			// {
-			// 	MatrixMoveEvents.OnSpeedChange.Invoke(oldMotionState.Speed, newMotionState.Speed);
-			// }
-		//}
+	public void PerformClientStop(Vector2Int stopPos, double stopTime)
+	{
+		if (stopTimeHistory.Contains(stopTime)) return;
+
+		stopTimeHistory.Add(stopTime);
+
+		toPosition = stopPos;
+		fromPosition = transform.position;
+		moveLerp = 0f;
+		performingMove = true;
+		Debug.Log($"DO STOP REQUEST: {stopPos}");
+		stopRequestPos = stopPos;
 	}
 
 	public void UpdateClientFacingState(MatrixFacingState oldFacingState, MatrixFacingState newFacingState)
