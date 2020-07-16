@@ -74,7 +74,6 @@ public class MeleeStun : MonoBehaviour, ICheckedInteractable<HandApply>
 			registerPlayerVictim.ServerStun(stunTime);
 			SoundManager.PlayNetworkedAtPos(stunSound, target.transform.position, sourceObj: target.gameObject);
 			// deactivates the stun and makes you wait;
-			
 			DisableStun();
 			// Special case: If we're on help intent (only stun), we should still show the lerp (unless we're hitting ourselves)
 			if (interaction.Intent == Intent.Help && performer != target)
