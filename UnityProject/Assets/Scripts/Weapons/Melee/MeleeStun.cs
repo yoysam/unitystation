@@ -24,6 +24,11 @@ public class MeleeStun : MonoBehaviour, ICheckedInteractable<HandApply>
 	/// if you can stun
 	/// </summary>
 	private bool canStun = true;
+	/// <Summary>
+	/// how many stuns have been entered
+	/// </Summary
+
+	private int howMany = 0;
 
 	/// <summary>
 	/// Sounds to play when stunning someone
@@ -71,15 +76,20 @@ public class MeleeStun : MonoBehaviour, ICheckedInteractable<HandApply>
 		// Stun the victim. We checke whether the baton is activated in WillInteract and if the user has a charge to stun
 		if (registerPlayerVictim && canStun)
 		{
-			registerPlayerVictim.ServerStun(stunTime);
-			SoundManager.PlayNetworkedAtPos(stunSound, target.transform.position, sourceObj: target.gameObject);
-			// deactivates the stun and makes you wait;
-			DisableStun();
-			// Special case: If we're on help intent (only stun), we should still show the lerp (unless we're hitting ourselves)
-			if (interaction.Intent == Intent.Help && performer != target)
+			howMany++;
+			if (howMany < 2)
 			{
-				wna.RpcMeleeAttackLerp(dir, gameObject);
+				registerPlayerVictim.ServerStun(stunTime);
+				SoundManager.PlayNetworkedAtPos(stunSound, target.transform.position, sourceObj: target.gameObject);
+				// deactivates the stun and makes you wait;
+				DisableStun();
+				// Special case: If we're on help intent (only stun), we should still show the lerp (unless we're hitting ourselves)
+				if (interaction.Intent == Intent.Help && performer != target)
+				{
+					wna.RpcMeleeAttackLerp(dir, gameObject);
+				}
 			}
+			howMany--;
 		}
 	}
 	// creates the timer needed to let you stun again'
