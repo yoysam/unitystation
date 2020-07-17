@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Runtime.Remoting.Metadata.W3cXsd2001;
 using UnityEngine;
 
 [RequireComponent(typeof(ConeOfSight))]
@@ -13,6 +14,12 @@ public class MobFlee : MobPathFinder
 
 	private DateTime lastFlee;
 	private float fleeCoolDown = 4f;
+	/// <summary>
+	/// attemps made at fleeing
+	/// </summary>
+	private int attemps = 0;
+	private int delay = 5;
+	private bool attemptReset;
 
 	public override void OnEnable()
 	{
@@ -57,8 +64,19 @@ public class MobFlee : MobPathFinder
 
 	IEnumerator FindValidWayPoint(Vector2 oppositeDir)
 	{
-		//First try to escape the room by looking for a door
-		var possibleDoors = Physics2D.OverlapCircleAll(transform.position, 20f, doorMask);
+		if (attemps >= 10)
+		{
+			if (attemptReset) yield break;
+			attemptReset = true;
+			yield return new WaitForSeconds(delay);
+
+			attemps = 0;
+			attemptReset = false;
+			yield break;
+		}
+
+				//First try to escape the room by looking for a door
+				var possibleDoors = Physics2D.OverlapCircleAll(transform.position, 20f, doorMask);
 
 		//See if the door is visible to npc:
 		List<Collider2D> visibleDoors = new List<Collider2D>();
@@ -92,6 +110,11 @@ public class MobFlee : MobPathFinder
 		//See if there is a decent door for the ref point
 		if (visibleDoors.Count != 0)
 		{
+			if (attemps >= 10)
+			{
+				attemps = 0;
+				yield return new WaitForSeconds(delay);
+			}
 			var door = 0;
 			var dist = 0f;
 			for (int i = 0; i < visibleDoors.Count; i++)
@@ -165,14 +188,16 @@ public class MobFlee : MobPathFinder
 			}
 		}
 
-		//Lets try to get a path:
+		//Lets try to get a path: making it that it doesnt acivate every frame and lag the game
 		var path = FindNewPath((Vector2Int) registerTile.LocalPositionServer,
 			(Vector2Int) registerTile.LocalPositionServer + Vector2Int.RoundToInt(tryGetGoalPos - transform.position));
 
 		if (path != null)
 		{
+			
 			if (path.Count == 0)
 			{
+				attemps++;
 				TryToFlee();
 			}
 			else
@@ -182,6 +207,7 @@ public class MobFlee : MobPathFinder
 		}
 		else
 		{
+			attemps++;
 			TryToFlee();
 		}
 	}
